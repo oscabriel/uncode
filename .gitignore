@@ -49,3 +49,5 @@ coverage
 .cache
 tmp
 temp
+apps/web/src/routeTree.gen.ts
+packages/backend/convex/_generated/
