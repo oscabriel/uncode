@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@uncode/backend/convex/_generated/api";
 import { Button } from "@cloudflare/kumo";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
@@ -17,25 +17,29 @@ export const Route = createFileRoute("/signin")({
 
 function RouteComponent() {
   const [showSignIn, setShowSignIn] = useState(false);
+  const currentUser = useQuery(api.auth.getCurrentUser);
 
-  return (
-    <>
-      <Authenticated>
-        <AccountView />
-      </Authenticated>
-      <Unauthenticated>
-        {showSignIn ? (
-          <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
-        ) : (
-          <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
-        )}
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-kumo-subtle">Loading...</p>
-        </div>
-      </AuthLoading>
-    </>
+  // Still loading — getCurrentUser returns `undefined` while the query is in flight.
+  if (currentUser === undefined) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-sm text-kumo-subtle">Loading...</p>
+      </div>
+    );
+  }
+
+  // Real (non-anonymous) authenticated user — show account view.
+  if (currentUser && !currentUser.isAnonymous) {
+    return <AccountView />;
+  }
+
+  // No user or anonymous user — show sign-in / sign-up forms so they can
+  // create a real account (Better Auth will automatically link the anonymous
+  // session to the new account via the onLinkAccount callback).
+  return showSignIn ? (
+    <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
+  ) : (
+    <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
   );
 }
 

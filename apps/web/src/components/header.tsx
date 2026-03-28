@@ -36,13 +36,10 @@ export default function Header() {
         </nav>
 
         <div className="flex justify-end">
-          {user === undefined ? null : user ? (
+          {user === undefined ? null : user && !user.isAnonymous ? (
             <UserMenu />
           ) : (
-            <Link
-              to="/signin"
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
-            >
+            <Link to="/signin" className={buttonVariants({ variant: "ghost", size: "sm" })}>
               Sign in
             </Link>
           )}
