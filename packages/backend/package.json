@@ -6,18 +6,24 @@
   "author": "",
   "scripts": {
     "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success"
+    "dev:setup": "convex dev --configure --until-success",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@convex-dev/better-auth": "catalog:",
+    "@zxing/library": "catalog:",
     "better-auth": "catalog:",
     "convex": "catalog:",
     "dotenv": "catalog:",
+    "fast-png": "catalog:",
+    "jpeg-js": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "@uncode/config": "workspace:*",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "catalog:"
   }
 }

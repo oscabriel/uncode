@@ -1,0 +1,14 @@
+{
+  "extends": "@uncode/config/tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true
+  },
+  "include": ["convex/**/*.ts", "lib/**/*.ts", "vitest.config.ts"],
+  "exclude": ["convex/_generated"]
+}
