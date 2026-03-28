@@ -7,9 +7,9 @@ import type {
   BarcodeEncodeActionResult,
   BarcodeRenderResult,
 } from "@uncode/backend/convex/lib/barcodeTypes";
-import { Badge, Button, cn, useKumoToastManager } from "@cloudflare/kumo";
+import { Badge, Button, buttonVariants, cn, useKumoToastManager } from "@cloudflare/kumo";
 import { useAction, useMutation } from "convex/react";
-import { CheckCircle2, Copy, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Copy, Download, Loader2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import BarcodeResultCard from "@/components/barcode-result-card";
@@ -40,8 +40,6 @@ function buildBarcodeAssetUrl(format: "svg" | "png", plaintext: string) {
   if (format === "svg") url.searchParams.set("label", "true");
   return url.toString();
 }
-
-const EXAMPLES = ["WO20070317", "ABC12345ZX", "81936910422665342067"] as const;
 
 type BatchResult = {
   plaintext: string;
@@ -265,7 +263,7 @@ function WorkbenchComponent() {
             className={cn(
               "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               activeTab === "encode"
-                ? "bg-kumo-brand text-kumo-inverse shadow-sm"
+                ? "bg-kumo-brand text-white shadow-sm"
                 : "text-kumo-subtle hover:text-kumo-default",
             )}
           >
@@ -277,7 +275,7 @@ function WorkbenchComponent() {
             className={cn(
               "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               activeTab === "decode"
-                ? "bg-kumo-brand text-kumo-inverse shadow-sm"
+                ? "bg-kumo-brand text-white shadow-sm"
                 : "text-kumo-subtle hover:text-kumo-default",
             )}
           >
@@ -292,43 +290,29 @@ function WorkbenchComponent() {
                 e.preventDefault();
                 handleGenerate();
               }}
-              className="space-y-3"
+              className="flex gap-3"
             >
-              <div className="flex gap-3">
-                <textarea
-                  value={plaintext}
-                  onChange={(e) => setPlaintext(e.target.value)}
-                  placeholder="Enter text to encode — one per line for batch"
-                  autoComplete="off"
-                  spellCheck={false}
-                  rows={textareaRows}
-                  className="flex-1 resize-y rounded-lg border border-kumo-line bg-kumo-elevated px-4 py-2.5 text-sm text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
-                />
-                <div className="flex items-end">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={!plaintext.trim() || pendingAction !== null}
-                  >
-                    {pendingAction === "generate"
-                      ? "Generating..."
-                      : "Generate"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {EXAMPLES.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => setPlaintext(example)}
-                    className="rounded-md bg-kumo-recessed px-2.5 py-1 font-mono text-xs text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
-                  >
-                    {example}
-                  </button>
-                ))}
+              <textarea
+                value={plaintext}
+                onChange={(e) => setPlaintext(e.target.value)}
+                placeholder="Enter text to encode — one per line for batch"
+                autoComplete="off"
+                spellCheck={false}
+                rows={textareaRows}
+                className="min-h-12 flex-1 resize-y rounded-xl border border-kumo-line bg-kumo-elevated px-5 py-3 text-[15px] text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
+              />
+              <div className="flex items-start">
+                <button
+                  type="submit"
+                  disabled={!plaintext.trim() || pendingAction !== null}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-kumo-brand text-white transition-colors hover:bg-kumo-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {pendingAction === "generate" ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="size-5" />
+                  )}
+                </button>
               </div>
             </form>
 
@@ -400,7 +384,7 @@ function WorkbenchComponent() {
 
               <Button
                 type="button"
-                variant="primary"
+                variant="secondary"
                 onClick={handleDecode}
                 disabled={!selectedFile || pendingAction === "decode"}
                 className="w-full"
@@ -487,40 +471,64 @@ function BatchResultsView({ results }: { results: BatchResult[] }) {
         {results.map((r, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate font-mono text-sm">{r.plaintext}</p>
-                <Badge
-                  variant={
-                    r.status === "success" ? "success" : "destructive"
-                  }
-                >
-                  {r.status === "success" ? "OK" : "Failed"}
-                </Badge>
-              </div>
+              <p className="truncate font-mono text-sm">{r.plaintext}</p>
               {r.encodedText && (
                 <p className="mt-1 truncate font-mono text-xs text-kumo-subtle">
                   {r.encodedText}
                 </p>
               )}
-              {r.status !== "success" && r.errorMessage && (
+              {r.status !== "success" && (
                 <p className="mt-1 truncate text-xs text-kumo-danger">
+                  <Badge variant="destructive" className="mr-1.5">
+                    Failed
+                  </Badge>
                   {r.errorMessage}
                 </p>
               )}
             </div>
-            {r.encodedText && (
-              <button
-                type="button"
-                onClick={() => handleCopySingle(i, r.encodedText!)}
-                className="shrink-0 rounded-md p-1.5 text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
-              >
-                {copiedIndex === i ? (
-                  <CheckCircle2 className="size-4 text-kumo-success" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {r.plaintext && r.status === "success" && (
+                <>
+                  <a
+                    href={buildBarcodeAssetUrl("svg", r.plaintext)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "h-auto px-1.5 py-1 text-xs",
+                    )}
+                  >
+                    <Download className="size-3" />
+                    SVG
+                  </a>
+                  <a
+                    href={buildBarcodeAssetUrl("png", r.plaintext)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "h-auto px-1.5 py-1 text-xs",
+                    )}
+                  >
+                    <Download className="size-3" />
+                    PNG
+                  </a>
+                </>
+              )}
+              {r.encodedText && (
+                <button
+                  type="button"
+                  onClick={() => handleCopySingle(i, r.encodedText!)}
+                  className="rounded-md p-1.5 text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
+                >
+                  {copiedIndex === i ? (
+                    <CheckCircle2 className="size-4 text-kumo-success" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
