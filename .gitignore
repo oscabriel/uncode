@@ -49,8 +49,6 @@ coverage
 .cache
 tmp
 temp
-apps/web/src/routeTree.gen.ts
-packages/backend/convex/_generated/
 
 # Local Netlify folder
 .netlify
