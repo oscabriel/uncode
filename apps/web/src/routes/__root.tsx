@@ -39,10 +39,23 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "My App",
+        title: "Uncode | Barcode Workbench",
       },
     ],
     links: [
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -75,7 +88,7 @@ function RootDocument() {
         <head>
           <HeadContent />
         </head>
-        <body>
+        <body className="bg-black text-white antialiased">
           <div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
