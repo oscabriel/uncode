@@ -10,16 +10,13 @@ const barcodeRunFailureStatus = v.union(
   v.literal("invalid_image"),
 );
 
-async function resolveActorId(ctx: {
-  auth: { getUserIdentity(): Promise<{ subject: string } | null> };
-}) {
-  const identity = await ctx.auth.getUserIdentity();
-  return identity?.subject ?? "anonymous";
-}
-
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required to upload files.");
+    }
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -29,12 +26,16 @@ export const listRecentRuns = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const actorId = await resolveActorId(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      // No identity — the client should show session-based history instead.
+      return [];
+    }
     const limit = Math.max(1, Math.min(args.limit ?? 10, 25));
 
     return await ctx.db
       .query("barcodeRuns")
-      .withIndex("by_created_by_created_at", (q) => q.eq("createdBy", actorId))
+      .withIndex("by_created_by_created_at", (q) => q.eq("createdBy", identity.subject))
       .order("desc")
       .take(limit);
   },
@@ -45,10 +46,11 @@ export const getBarcodeRun = query({
     runId: v.id("barcodeRuns"),
   },
   handler: async (ctx, args) => {
-    const actorId = await resolveActorId(ctx);
-    const barcodeRun = await ctx.db.get(args.runId);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
 
-    if (!barcodeRun || barcodeRun.createdBy !== actorId) {
+    const barcodeRun = await ctx.db.get(args.runId);
+    if (!barcodeRun || barcodeRun.createdBy !== identity.subject) {
       return null;
     }
 

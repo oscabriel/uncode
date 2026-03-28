@@ -16,11 +16,23 @@ import { encodeCode128 as buildCode128Encoding } from "./lib/code128";
 import { toLibreBarcode128Text } from "./lib/code128Libre";
 import { renderCode128Svg } from "./lib/renderSvg";
 
-async function resolveActorId(ctx: {
-  auth: { getUserIdentity(): Promise<{ subject: string } | null> };
-}) {
+type Actor = {
+  id: string;
+  isAnonymous: boolean;
+};
+
+/**
+ * Resolves the current user's identity and anonymous status.
+ * Anonymous users (via the Better Auth anonymous plugin) get full use of
+ * the barcode tools but their runs are NOT persisted to the database.
+ */
+async function resolveActor(ctx: ActionCtx): Promise<Actor> {
   const identity = await ctx.auth.getUserIdentity();
-  return identity?.subject ?? "anonymous";
+  if (!identity) {
+    return { id: "anonymous", isAnonymous: true };
+  }
+  const isAnonymous: boolean = await ctx.runQuery(internal.auth.isCurrentUserAnonymous);
+  return { id: identity.subject, isAnonymous };
 }
 
 function getErrorMessage(error: unknown) {
@@ -68,19 +80,23 @@ async function handleEncodeCode128(
   ctx: ActionCtx,
   args: { plaintext: string },
 ): Promise<BarcodeEncodeActionResult> {
-  const createdBy = await resolveActorId(ctx);
+  const actor = await resolveActor(ctx);
 
   try {
     const canonicalEncoding = buildCode128Encoding(args.plaintext);
     const libreText = toLibreBarcode128Text(canonicalEncoding);
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
-      kind: "encode",
-      createdBy,
-      plaintext: canonicalEncoding.plaintext,
-      encodedText: libreText.encodedText,
-      fontEncoding: libreText.fontEncoding,
-      checksumValue: canonicalEncoding.checksumValue,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
+        kind: "encode",
+        createdBy: actor.id,
+        plaintext: canonicalEncoding.plaintext,
+        encodedText: libreText.encodedText,
+        fontEncoding: libreText.fontEncoding,
+        checksumValue: canonicalEncoding.checksumValue,
+      });
+    }
 
     return {
       kind: "encode",
@@ -94,13 +110,17 @@ async function handleEncodeCode128(
     };
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-      kind: "encode",
-      createdBy,
-      plaintext: args.plaintext,
-      status: "validation_error",
-      errorMessage,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+        kind: "encode",
+        createdBy: actor.id,
+        plaintext: args.plaintext,
+        status: "validation_error",
+        errorMessage,
+      });
+    }
 
     return {
       kind: "encode",
@@ -130,7 +150,7 @@ async function handleGenerateCode128Svg(
     };
   },
 ): Promise<BarcodeRenderResult> {
-  const createdBy = await resolveActorId(ctx);
+  const actor = await resolveActor(ctx);
 
   try {
     const canonicalEncoding = buildCode128Encoding(args.plaintext);
@@ -140,15 +160,19 @@ async function handleGenerateCode128Svg(
       ctx,
       new Blob([rendered.svg], { type: "image/svg+xml;charset=utf-8" }),
     );
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
-      kind: "render",
-      createdBy,
-      plaintext: canonicalEncoding.plaintext,
-      encodedText: libreText.encodedText,
-      fontEncoding: libreText.fontEncoding,
-      checksumValue: canonicalEncoding.checksumValue,
-      resultImageStorageId: storedAsset.storageId,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
+        kind: "render",
+        createdBy: actor.id,
+        plaintext: canonicalEncoding.plaintext,
+        encodedText: libreText.encodedText,
+        fontEncoding: libreText.fontEncoding,
+        checksumValue: canonicalEncoding.checksumValue,
+        resultImageStorageId: storedAsset.storageId,
+      });
+    }
 
     return {
       kind: "render",
@@ -166,13 +190,17 @@ async function handleGenerateCode128Svg(
     };
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-      kind: "render",
-      createdBy,
-      plaintext: args.plaintext,
-      status: "validation_error",
-      errorMessage,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+        kind: "render",
+        createdBy: actor.id,
+        plaintext: args.plaintext,
+        status: "validation_error",
+        errorMessage,
+      });
+    }
 
     return {
       kind: "render",
@@ -198,7 +226,7 @@ async function handleGenerateCode128Png(
     };
   },
 ): Promise<BarcodeRenderResult> {
-  const createdBy = await resolveActorId(ctx);
+  const actor = await resolveActor(ctx);
 
   try {
     const canonicalEncoding = buildCode128Encoding(args.plaintext);
@@ -208,15 +236,19 @@ async function handleGenerateCode128Png(
       ctx,
       new Blob([Uint8Array.from(rendered.pngBytes).buffer], { type: "image/png" }),
     );
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
-      kind: "render",
-      createdBy,
-      plaintext: canonicalEncoding.plaintext,
-      encodedText: libreText.encodedText,
-      fontEncoding: libreText.fontEncoding,
-      checksumValue: canonicalEncoding.checksumValue,
-      resultImageStorageId: storedAsset.storageId,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
+        kind: "render",
+        createdBy: actor.id,
+        plaintext: canonicalEncoding.plaintext,
+        encodedText: libreText.encodedText,
+        fontEncoding: libreText.fontEncoding,
+        checksumValue: canonicalEncoding.checksumValue,
+        resultImageStorageId: storedAsset.storageId,
+      });
+    }
 
     return {
       kind: "render",
@@ -234,13 +266,17 @@ async function handleGenerateCode128Png(
     };
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-      kind: "render",
-      createdBy,
-      plaintext: args.plaintext,
-      status: "validation_error",
-      errorMessage,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+        kind: "render",
+        createdBy: actor.id,
+        plaintext: args.plaintext,
+        status: "validation_error",
+        errorMessage,
+      });
+    }
 
     return {
       kind: "render",
@@ -257,18 +293,22 @@ async function handleDecodeCode128Image(
   ctx: ActionCtx,
   args: { storageId: Id<"_storage"> },
 ): Promise<BarcodeDecodeResult> {
-  const createdBy = await resolveActorId(ctx);
+  const actor = await resolveActor(ctx);
   const imageBlob = await ctx.storage.get(args.storageId);
 
   if (!imageBlob) {
     const errorMessage = "The uploaded image could not be found in storage.";
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-      kind: "decode",
-      createdBy,
-      inputImageStorageId: args.storageId,
-      status: "not_found",
-      errorMessage,
-    });
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+        kind: "decode",
+        createdBy: actor.id,
+        inputImageStorageId: args.storageId,
+        status: "not_found",
+        errorMessage,
+      });
+    }
 
     return {
       kind: "decode",
@@ -284,12 +324,15 @@ async function handleDecodeCode128Image(
   const decoded = await decodeCode128ImageFromBlob(imageBlob);
 
   if (decoded.status === "success") {
-    const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
-      kind: "decode",
-      createdBy,
-      plaintext: decoded.plaintext,
-      inputImageStorageId: args.storageId,
-    });
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
+        kind: "decode",
+        createdBy: actor.id,
+        plaintext: decoded.plaintext,
+        inputImageStorageId: args.storageId,
+      });
+    }
 
     return {
       kind: "decode",
@@ -302,13 +345,16 @@ async function handleDecodeCode128Image(
     };
   }
 
-  const runId: Id<"barcodeRuns"> = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-    kind: "decode",
-    createdBy,
-    inputImageStorageId: args.storageId,
-    status: decoded.status,
-    errorMessage: decoded.errorMessage,
-  });
+  let runId: Id<"barcodeRuns"> | undefined;
+  if (!actor.isAnonymous) {
+    runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+      kind: "decode",
+      createdBy: actor.id,
+      inputImageStorageId: args.storageId,
+      status: decoded.status,
+      errorMessage: decoded.errorMessage,
+    });
+  }
 
   return {
     kind: "decode",
