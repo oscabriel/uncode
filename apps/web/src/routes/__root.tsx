@@ -11,6 +11,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
 import { Toasty } from "@cloudflare/kumo";
+import { useEffect, useRef } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { getToken } from "@/lib/auth-server";
@@ -76,6 +77,25 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   },
 });
 
+/**
+ * Automatically signs in users anonymously when there is no active session.
+ * This ensures every visitor gets a Better Auth identity so Convex functions
+ * always have a `ctx.auth` identity available.  Anonymous runs are kept
+ * client-side in sessionStorage; only real (linked) accounts persist to the DB.
+ */
+function AutoAnonymousSignIn() {
+  const { data: session, isPending } = authClient.useSession();
+  const attemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (isPending || session || attemptedRef.current) return;
+    attemptedRef.current = true;
+    authClient.signIn.anonymous();
+  }, [isPending, session]);
+
+  return null;
+}
+
 function RootDocument() {
   const context = useRouteContext({ from: Route.id });
 
@@ -85,6 +105,7 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
+      <AutoAnonymousSignIn />
       <html lang="en" data-mode="dark">
         <head>
           <HeadContent />
