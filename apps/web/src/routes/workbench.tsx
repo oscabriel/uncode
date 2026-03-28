@@ -8,11 +8,12 @@ import type {
   BarcodeRenderResult,
 } from "@uncode/backend/convex/lib/barcodeTypes";
 import { Badge, Button, buttonVariants, cn, useKumoToastManager } from "@cloudflare/kumo";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowRight, CheckCircle2, Copy, Download, Loader2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import BarcodeResultCard from "@/components/barcode-result-card";
+import { addSessionRun } from "@/lib/session-run-store";
 import { env } from "@uncode/env/web";
 
 export const Route = createFileRoute("/workbench")({
@@ -52,6 +53,8 @@ function WorkbenchComponent() {
   const { text: initialText, tab: activeTab } = Route.useSearch();
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
+  const currentUser = useQuery(api.auth.getCurrentUser);
+  const isAnonymous = !currentUser || currentUser.isAnonymous;
   const generateUploadUrl = useMutation(api.barcodes.generateUploadUrl);
   const encodeCode128 = useAction(api.barcodeNode.encodeCode128);
   const generateCode128Svg = useAction(api.barcodeNode.generateCode128Svg);
@@ -59,14 +62,9 @@ function WorkbenchComponent() {
   const toasts = useKumoToastManager();
 
   const [plaintext, setPlaintext] = useState(initialText ?? "");
-  const [pendingAction, setPendingAction] = useState<
-    "generate" | "decode" | null
-  >(null);
+  const [pendingAction, setPendingAction] = useState<"generate" | "decode" | null>(null);
   const [result, setResult] = useState<
-    | BarcodeEncodeActionResult
-    | BarcodeRenderResult
-    | BarcodeDecodeResult
-    | null
+    BarcodeEncodeActionResult | BarcodeRenderResult | BarcodeDecodeResult | null
   >(null);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -92,17 +90,12 @@ function WorkbenchComponent() {
   }, [selectedFile]);
 
   const svgDownloadUrl = useMemo(() => {
-    if (result?.kind === "render" && result.svg && result.imageUrl)
-      return result.imageUrl;
-    return result?.plaintext
-      ? buildBarcodeAssetUrl("svg", result.plaintext)
-      : undefined;
+    if (result?.kind === "render" && result.svg && result.imageUrl) return result.imageUrl;
+    return result?.plaintext ? buildBarcodeAssetUrl("svg", result.plaintext) : undefined;
   }, [result]);
 
   const pngDownloadUrl = useMemo(() => {
-    return result?.plaintext
-      ? buildBarcodeAssetUrl("png", result.plaintext)
-      : undefined;
+    return result?.plaintext ? buildBarcodeAssetUrl("png", result.plaintext) : undefined;
   }, [result?.plaintext]);
 
   async function refreshHistory() {
@@ -146,18 +139,23 @@ function WorkbenchComponent() {
         },
       });
       setResult(r);
-      await refreshHistory();
+      if (isAnonymous) {
+        addSessionRun({
+          kind: r.kind,
+          status: r.status,
+          plaintext: r.plaintext,
+          errorMessage: r.errorMessage,
+        });
+      } else {
+        await refreshHistory();
+      }
       toasts.add({
-        title:
-          r.status === "success"
-            ? "Barcode generated."
-            : (r.errorMessage ?? "Failed."),
+        title: r.status === "success" ? "Barcode generated." : (r.errorMessage ?? "Failed."),
         variant: r.status === "success" ? "success" : "error",
       });
     } catch (error) {
       toasts.add({
-        title:
-          error instanceof Error ? error.message : "Generation failed.",
+        title: error instanceof Error ? error.message : "Generation failed.",
         variant: "error",
       });
     } finally {
@@ -184,14 +182,24 @@ function WorkbenchComponent() {
         results.push({
           plaintext: line,
           status: "validation_error",
-          errorMessage:
-            error instanceof Error ? error.message : "Encoding failed",
+          errorMessage: error instanceof Error ? error.message : "Encoding failed",
         });
       }
     }
 
     setBatchResults(results);
-    await refreshHistory();
+    if (isAnonymous) {
+      for (const r of results) {
+        addSessionRun({
+          kind: "encode",
+          status: r.status,
+          plaintext: r.plaintext,
+          errorMessage: r.errorMessage,
+        });
+      }
+    } else {
+      await refreshHistory();
+    }
     const successCount = results.filter((r) => r.status === "success").length;
     toasts.add({
       title: `Encoded ${successCount}/${results.length} items.`,
@@ -225,13 +233,20 @@ function WorkbenchComponent() {
         storageId: uploadResult.storageId as never,
       });
       setResult(r);
-      await refreshHistory();
+      if (isAnonymous) {
+        addSessionRun({
+          kind: r.kind,
+          status: r.status,
+          plaintext: r.plaintext,
+          errorMessage: r.errorMessage,
+        });
+      } else {
+        await refreshHistory();
+      }
       if (r.status === "success" && r.plaintext) setPlaintext(r.plaintext);
       toasts.add({
         title:
-          r.status === "success"
-            ? "Decoded successfully."
-            : (r.errorMessage ?? "Decode failed."),
+          r.status === "success" ? "Decoded successfully." : (r.errorMessage ?? "Decode failed."),
         variant: r.status === "success" ? "success" : "error",
       });
     } catch (error) {
@@ -244,10 +259,8 @@ function WorkbenchComponent() {
     }
   }
 
-  const encodeResult =
-    result && result.kind !== "decode" ? result : null;
-  const decodeResult =
-    result && result.kind === "decode" ? result : null;
+  const encodeResult = result && result.kind !== "decode" ? result : null;
+  const decodeResult = result && result.kind === "decode" ? result : null;
 
   const lineCount = plaintext.split("\n").length;
   const textareaRows = Math.max(1, Math.min(lineCount, 8));
@@ -343,17 +356,13 @@ function WorkbenchComponent() {
                   className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-kumo-line bg-kumo-elevated px-4 py-12 text-center transition-colors hover:border-kumo-default/30 hover:bg-kumo-tint"
                 >
                   <Upload className="size-6 text-kumo-subtle" />
-                  <p className="mt-3 text-sm font-medium text-kumo-default">
-                    Upload barcode image
-                  </p>
+                  <p className="mt-3 text-sm font-medium text-kumo-default">Upload barcode image</p>
                   <p className="mt-1 text-xs text-kumo-subtle">PNG or JPEG</p>
                   <input
                     id="decode-upload"
                     type="file"
                     accept="image/png,image/jpeg"
-                    onChange={(e) =>
-                      setSelectedFile(e.target.files?.[0] ?? null)
-                    }
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                     className="sr-only"
                   />
                 </label>
@@ -361,9 +370,7 @@ function WorkbenchComponent() {
 
               {decodePreviewUrl && (
                 <div className="flex items-center justify-between">
-                  <p className="font-mono text-xs text-kumo-subtle">
-                    {selectedFile?.name}
-                  </p>
+                  <p className="font-mono text-xs text-kumo-subtle">{selectedFile?.name}</p>
                   <label
                     htmlFor="decode-replace"
                     className="cursor-pointer text-xs text-kumo-link hover:underline"
@@ -373,9 +380,7 @@ function WorkbenchComponent() {
                       id="decode-replace"
                       type="file"
                       accept="image/png,image/jpeg"
-                      onChange={(e) =>
-                        setSelectedFile(e.target.files?.[0] ?? null)
-                      }
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                       className="sr-only"
                     />
                   </label>
@@ -408,9 +413,7 @@ function WorkbenchComponent() {
                 svgDownloadUrl={svgDownloadUrl}
                 pngDownloadUrl={pngDownloadUrl}
                 imagePreviewUrl={
-                  result?.kind === "decode"
-                    ? (result.imageUrl ?? decodePreviewUrl)
-                    : undefined
+                  result?.kind === "decode" ? (result.imageUrl ?? decodePreviewUrl) : undefined
                 }
               />
             )}
@@ -425,9 +428,7 @@ function BatchResultsView({ results }: { results: BatchResult[] }) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const successResults = results.filter(
-    (r) => r.status === "success" && r.encodedText,
-  );
+  const successResults = results.filter((r) => r.status === "success" && r.encodedText);
 
   async function handleCopyAll() {
     const text = successResults.map((r) => r.encodedText).join("\n");
@@ -480,9 +481,7 @@ function BatchResultsView({ results }: { results: BatchResult[] }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-mono text-sm">{r.plaintext}</p>
               {r.encodedText && (
-                <p className="mt-1 truncate font-mono text-xs text-kumo-subtle">
-                  {r.encodedText}
-                </p>
+                <p className="mt-1 truncate font-mono text-xs text-kumo-subtle">{r.encodedText}</p>
               )}
               {r.status !== "success" && (
                 <p className="mt-1 truncate text-xs text-kumo-danger">

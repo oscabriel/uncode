@@ -1,5 +1,15 @@
-import type { Doc } from "@uncode/backend/convex/_generated/dataModel";
 import { Badge, SkeletonLine } from "@cloudflare/kumo";
+
+/** Minimal shape used by the history list — works for both Convex docs and
+ *  client-side session runs. */
+export type BarcodeRunItem = {
+  id: string;
+  kind: string;
+  status: string;
+  plaintext?: string;
+  errorMessage?: string;
+  createdAt: number;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -25,32 +35,24 @@ function statusLabel(status: string) {
   }
 }
 
-function HistoryItem({ run }: { run: Doc<"barcodeRuns"> }) {
+function HistoryItem({ run }: { run: BarcodeRunItem }) {
   const isSuccess = run.status === "success";
 
   return (
     <div className="space-y-1 px-5 py-3.5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-hidden">
-          <Badge variant={isSuccess ? "success" : "destructive"}>
-            {run.kind}
-          </Badge>
-          <Badge variant={isSuccess ? "secondary" : "destructive"}>
-            {statusLabel(run.status)}
-          </Badge>
+          <Badge variant={isSuccess ? "success" : "destructive"}>{run.kind}</Badge>
+          <Badge variant={isSuccess ? "secondary" : "destructive"}>{statusLabel(run.status)}</Badge>
         </div>
         <span className="shrink-0 text-xs text-kumo-subtle">
           {dateFormatter.format(new Date(run.createdAt))}
         </span>
       </div>
       <div className="pl-0.5">
-        <p className="truncate text-sm text-kumo-default">
-          {run.plaintext ?? "\u2014"}
-        </p>
+        <p className="truncate text-sm text-kumo-default">{run.plaintext ?? "\u2014"}</p>
         {!isSuccess && run.errorMessage && (
-          <p className="mt-0.5 truncate text-xs text-kumo-danger">
-            {run.errorMessage}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-kumo-danger">{run.errorMessage}</p>
         )}
       </div>
     </div>
@@ -61,7 +63,7 @@ export default function BarcodeHistoryList({
   runs,
   isLoading,
 }: {
-  runs: Doc<"barcodeRuns">[] | undefined;
+  runs: BarcodeRunItem[] | undefined;
   isLoading: boolean;
 }) {
   return (
@@ -75,13 +77,11 @@ export default function BarcodeHistoryList({
       ) : runs && runs.length > 0 ? (
         <div className="divide-y divide-kumo-line">
           {runs.map((run) => (
-            <HistoryItem key={run._id} run={run} />
+            <HistoryItem key={run.id} run={run} />
           ))}
         </div>
       ) : (
-        <div className="p-8 text-center text-sm text-kumo-subtle">
-          No runs yet.
-        </div>
+        <div className="p-8 text-center text-sm text-kumo-subtle">No runs yet.</div>
       )}
     </div>
   );
