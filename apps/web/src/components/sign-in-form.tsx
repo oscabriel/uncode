@@ -92,7 +92,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
           >
             {({ canSubmit, isSubmitting }) => (
-              <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+              <Button variant="secondary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                 {isSubmitting ? "Signing in..." : "Sign in"}
               </Button>
             )}
