@@ -67,7 +67,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                 type="email"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  field.handleChange(e.target.value)
+                }
                 error={field.state.meta.errors[0]?.message}
               />
             )}
@@ -82,7 +84,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                 type="password"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  field.handleChange(e.target.value)
+                }
                 error={field.state.meta.errors[0]?.message}
               />
             )}
@@ -92,7 +96,12 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
           >
             {({ canSubmit, isSubmitting }) => (
-              <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+              <Button
+                variant="primary"
+                type="submit"
+                className="w-full"
+                disabled={!canSubmit || isSubmitting}
+              >
                 {isSubmitting ? "Signing in..." : "Sign in"}
               </Button>
             )}
@@ -101,7 +110,11 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
 
         <p className="text-center text-sm text-kumo-subtle">
           Don&apos;t have an account?{" "}
-          <button type="button" onClick={onSwitchToSignUp} className="text-kumo-link hover:underline">
+          <button
+            type="button"
+            onClick={onSwitchToSignUp}
+            className="text-kumo-link hover:underline"
+          >
             Sign up
           </button>
         </p>

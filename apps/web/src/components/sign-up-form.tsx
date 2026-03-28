@@ -69,7 +69,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 name={field.name}
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  field.handleChange(e.target.value)
+                }
                 error={field.state.meta.errors[0]?.message}
               />
             )}
@@ -84,7 +86,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 type="email"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  field.handleChange(e.target.value)
+                }
                 error={field.state.meta.errors[0]?.message}
               />
             )}
@@ -99,7 +103,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 type="password"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  field.handleChange(e.target.value)
+                }
                 error={field.state.meta.errors[0]?.message}
               />
             )}
@@ -109,7 +115,12 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
             selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
           >
             {({ canSubmit, isSubmitting }) => (
-              <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+              <Button
+                variant="primary"
+                type="submit"
+                className="w-full"
+                disabled={!canSubmit || isSubmitting}
+              >
                 {isSubmitting ? "Creating account..." : "Create account"}
               </Button>
             )}
@@ -118,7 +129,11 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
 
         <p className="text-center text-sm text-kumo-subtle">
           Already have an account?{" "}
-          <button type="button" onClick={onSwitchToSignIn} className="text-kumo-link hover:underline">
+          <button
+            type="button"
+            onClick={onSwitchToSignIn}
+            className="text-kumo-link hover:underline"
+          >
             Sign in
           </button>
         </p>

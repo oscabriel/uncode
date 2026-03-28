@@ -7,11 +7,7 @@ import type {
 import { Badge, buttonVariants, cn } from "@cloudflare/kumo";
 import { useState } from "react";
 
-type BarcodeResult =
-  | BarcodeEncodeActionResult
-  | BarcodeRenderResult
-  | BarcodeDecodeResult
-  | null;
+type BarcodeResult = BarcodeEncodeActionResult | BarcodeRenderResult | BarcodeDecodeResult | null;
 
 export default function BarcodeResultCard({
   result,
@@ -30,8 +26,7 @@ export default function BarcodeResultCard({
 
   const isSuccess = result.status === "success";
   const svgMarkup = "svg" in result ? result.svg : undefined;
-  const encodedText =
-    "encodedText" in result ? result.encodedText : undefined;
+  const encodedText = "encodedText" in result ? result.encodedText : undefined;
 
   async function handleCopyEncoded() {
     if (!encodedText) return;
@@ -48,11 +43,7 @@ export default function BarcodeResultCard({
         </div>
       ) : imagePreviewUrl ? (
         <div className="bg-white">
-          <img
-            src={imagePreviewUrl}
-            alt="Barcode"
-            className="h-48 w-full object-contain p-4"
-          />
+          <img src={imagePreviewUrl} alt="Barcode" className="h-48 w-full object-contain p-4" />
         </div>
       ) : null}
 
@@ -65,16 +56,10 @@ export default function BarcodeResultCard({
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {result.plaintext && (
-              <span className="font-mono text-sm">{result.plaintext}</span>
-            )}
+            {result.plaintext && <span className="font-mono text-sm">{result.plaintext}</span>}
           </div>
           <Badge variant={isSuccess ? "success" : "destructive"}>
-            {isSuccess ? (
-              <CheckCircle2 className="size-3" />
-            ) : (
-              <TriangleAlert className="size-3" />
-            )}
+            {isSuccess ? <CheckCircle2 className="size-3" /> : <TriangleAlert className="size-3" />}
             {isSuccess ? "Success" : "Failed"}
           </Badge>
         </div>
@@ -83,9 +68,7 @@ export default function BarcodeResultCard({
           <div className="flex items-center justify-between gap-3 rounded-md bg-kumo-recessed px-4 py-3">
             <div className="min-w-0">
               <p className="text-xs text-kumo-subtle">Libre Barcode 128</p>
-              <p className="mt-0.5 truncate font-mono text-sm">
-                {encodedText}
-              </p>
+              <p className="mt-0.5 truncate font-mono text-sm">{encodedText}</p>
             </div>
             <button
               type="button"

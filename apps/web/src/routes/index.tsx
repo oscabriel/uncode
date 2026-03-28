@@ -26,18 +26,11 @@ function HomeComponent() {
     <main className="flex flex-1 items-center justify-center px-6 pb-20">
       <div className="w-full max-w-xl space-y-10 text-center">
         <div className="space-y-3">
-          <h1 className="text-5xl font-bold tracking-tight text-kumo-default">
-            Uncode
-          </h1>
-          <p className="text-lg text-kumo-subtle">
-            Barcode. Encode. Decode. Uncode.
-          </p>
+          <h1 className="text-5xl font-bold tracking-tight text-kumo-default">Uncode</h1>
+          <p className="text-lg text-kumo-subtle">Barcode. Encode. Decode. Uncode.</p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex gap-3 items-start"
-        >
+        <form onSubmit={handleSubmit} className="flex gap-3 items-start">
           <div className="relative flex-1">
             <textarea
               value={text}
