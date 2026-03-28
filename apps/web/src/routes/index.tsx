@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button } from "@cloudflare/kumo";
-import { Image } from "lucide-react";
+import { ArrowRight, Image } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -13,6 +12,8 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
   const navigate = useNavigate();
   const [text, setText] = useState("");
+  const lineCount = text.split("\n").length;
+  const textareaRows = Math.max(1, Math.min(lineCount, 8));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,21 +36,21 @@ function HomeComponent() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-3 sm:flex-row"
+          className="flex gap-3 items-start"
         >
           <div className="relative flex-1">
-            <input
-              type="text"
+            <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Enter text to encode or upload image to decode..."
               autoComplete="off"
               spellCheck={false}
-              className="h-12 w-full rounded-xl border border-kumo-line bg-kumo-elevated pl-5 pr-12 text-[15px] text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
+              rows={textareaRows}
+              className="min-h-12 w-full resize-y rounded-xl border border-kumo-line bg-kumo-elevated pl-5 pr-12 py-3 text-[15px] text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
             />
             <label
               htmlFor="home-image-upload"
-              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1 text-kumo-subtle transition-colors hover:text-kumo-default"
+              className="absolute right-3 top-3 cursor-pointer rounded-md p-1 text-kumo-subtle transition-colors hover:text-kumo-default"
             >
               <Image className="size-5" />
               <input
@@ -66,14 +67,13 @@ function HomeComponent() {
               />
             </label>
           </div>
-          <Button
+          <button
             type="submit"
-            variant="primary"
             disabled={!text.trim()}
-            className="h-12 rounded-xl px-8"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-kumo-brand text-white transition-colors hover:bg-kumo-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Generate
-          </Button>
+            <ArrowRight className="size-5" />
+          </button>
         </form>
       </div>
     </main>
