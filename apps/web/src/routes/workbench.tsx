@@ -49,7 +49,8 @@ type BatchResult = {
 };
 
 function WorkbenchComponent() {
-  const { text: initialText, tab: initialTab } = Route.useSearch();
+  const { text: initialText, tab: activeTab } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
   const generateUploadUrl = useMutation(api.barcodes.generateUploadUrl);
   const encodeCode128 = useAction(api.barcodeNode.encodeCode128);
@@ -57,7 +58,6 @@ function WorkbenchComponent() {
   const decodeCode128Image = useAction(api.barcodeNode.decodeCode128Image);
   const toasts = useKumoToastManager();
 
-  const [activeTab, setActiveTab] = useState<string>(initialTab ?? "encode");
   const [plaintext, setPlaintext] = useState(initialText ?? "");
   const [pendingAction, setPendingAction] = useState<
     "generate" | "decode" | null
@@ -259,7 +259,7 @@ function WorkbenchComponent() {
         <div className="flex gap-1 rounded-lg bg-kumo-recessed p-1">
           <button
             type="button"
-            onClick={() => setActiveTab("encode")}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, tab: "encode" }) })}
             className={cn(
               "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               activeTab === "encode"
@@ -271,7 +271,7 @@ function WorkbenchComponent() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("decode")}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, tab: "decode" }) })}
             className={cn(
               "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               activeTab === "decode"
@@ -384,14 +384,21 @@ function WorkbenchComponent() {
 
               <Button
                 type="button"
-                variant="secondary"
+                variant="primary"
                 onClick={handleDecode}
                 disabled={!selectedFile || pendingAction === "decode"}
-                className="w-full"
               >
-                {pendingAction === "decode"
-                  ? "Decoding..."
-                  : "Upload and decode"}
+                {pendingAction === "decode" ? (
+                  <>
+                    Decoding…
+                    <Loader2 className="size-4 animate-spin" />
+                  </>
+                ) : (
+                  <>
+                    Upload and decode
+                    <ArrowRight className="size-4" />
+                  </>
+                )}
               </Button>
             </div>
 

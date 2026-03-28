@@ -40,7 +40,7 @@ export default function Header() {
             <UserMenu />
           ) : (
             <Link
-              to="/dashboard"
+              to="/signin"
               className={buttonVariants({ variant: "ghost", size: "sm" })}
             >
               Sign in

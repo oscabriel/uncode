@@ -24,7 +24,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         },
         {
           onSuccess: () => {
-            navigate({ to: "/dashboard" });
+            navigate({ to: "/signin" });
             toasts.add({ title: "Account created", variant: "success" });
           },
           onError: (error) => {
@@ -109,7 +109,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
             selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
           >
             {({ canSubmit, isSubmitting }) => (
-              <Button variant="secondary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+              <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                 {isSubmitting ? "Creating account..." : "Create account"}
               </Button>
             )}
