@@ -51,14 +51,13 @@ function HistoryComponent() {
         {isAnonymous && (
           <div className="mb-4 rounded-lg border border-kumo-line bg-kumo-recessed px-5 py-4 text-sm text-kumo-subtle">
             <p>
-              You're using Uncode anonymously. Runs are stored in this browser session only.{" "}
               <Link
                 to="/signin"
                 className="font-medium text-kumo-link underline hover:text-kumo-default"
               >
                 Sign in
               </Link>{" "}
-              to save your history permanently.
+              to save your run history.
             </p>
           </div>
         )}
