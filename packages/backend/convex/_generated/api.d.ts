@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as barcodeActions from "../barcodeActions.js";
 import type * as barcodeHttp from "../barcodeHttp.js";
 import type * as barcodeNode from "../barcodeNode.js";
 import type * as barcodes from "../barcodes.js";
@@ -28,6 +29,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  barcodeActions: typeof barcodeActions;
   barcodeHttp: typeof barcodeHttp;
   barcodeNode: typeof barcodeNode;
   barcodes: typeof barcodes;

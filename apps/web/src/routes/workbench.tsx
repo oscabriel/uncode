@@ -56,8 +56,8 @@ function WorkbenchComponent() {
   const currentUser = useQuery(api.auth.getCurrentUser);
   const isAnonymous = !currentUser || currentUser.isAnonymous;
   const generateUploadUrl = useMutation(api.barcodes.generateUploadUrl);
-  const encodeCode128 = useAction(api.barcodeNode.encodeCode128);
-  const generateCode128Svg = useAction(api.barcodeNode.generateCode128Svg);
+  const encodeCode128 = useAction(api.barcodeActions.encodeCode128);
+  const generateCode128Svg = useAction(api.barcodeActions.generateCode128Svg);
   const decodeCode128Image = useAction(api.barcodeNode.decodeCode128Image);
   const toasts = useKumoToastManager();
 

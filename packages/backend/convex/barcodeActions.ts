@@ -1,20 +1,19 @@
-"use node";
-
 /**
- * Node.js-dependent barcode actions (PNG rendering, image decoding).
- * Pure-computation actions (encode, SVG) have been moved to barcodeActions.ts
- * to run in the always-warm Convex V8 runtime and avoid Node.js cold starts.
+ * Pure-computation barcode actions that run in the default Convex V8 runtime.
+ * These do NOT need Node.js — they perform only math, string ops, and storage calls.
+ * Running in V8 avoids Node.js cold starts (~200–800ms) and is always warm.
+ *
+ * Node.js-dependent actions (PNG rendering, image decoding) remain in barcodeNode.ts.
  */
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { decodeCode128ImageFromBlob } from "../lib/decodeImage";
-import { renderCode128Png } from "../lib/renderPng";
 import type { Id } from "./_generated/dataModel";
 import { action, type ActionCtx } from "./_generated/server";
-import type { BarcodeDecodeResult, BarcodeRenderResult } from "./lib/barcodeTypes";
+import type { BarcodeEncodeActionResult, BarcodeRenderResult } from "./lib/barcodeTypes";
 import { encodeCode128 as buildCode128Encoding } from "./lib/code128";
 import { toLibreBarcode128Text } from "./lib/code128Libre";
+import { renderCode128Svg } from "./lib/renderSvg";
 
 type Actor = {
   id: string;
@@ -38,12 +37,16 @@ function getErrorMessage(error: unknown) {
   return "Unknown barcode processing error.";
 }
 
-const pngRenderArgs = {
+const svgRenderArgs = {
   moduleWidth: v.optional(v.number()),
   barcodeHeight: v.optional(v.number()),
   quietZoneModules: v.optional(v.number()),
   foreground: v.optional(v.string()),
   background: v.optional(v.string()),
+  labelText: v.optional(v.string()),
+  labelGap: v.optional(v.number()),
+  labelFontSize: v.optional(v.number()),
+  labelFontFamily: v.optional(v.string()),
 };
 
 async function storeGeneratedAsset(
@@ -59,7 +62,64 @@ async function storeGeneratedAsset(
   };
 }
 
-async function handleGenerateCode128Png(
+async function handleEncodeCode128(
+  ctx: ActionCtx,
+  args: { plaintext: string },
+): Promise<BarcodeEncodeActionResult> {
+  const actor = await resolveActor(ctx);
+
+  try {
+    const canonicalEncoding = buildCode128Encoding(args.plaintext);
+    const libreText = toLibreBarcode128Text(canonicalEncoding);
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
+        kind: "encode",
+        createdBy: actor.id,
+        plaintext: canonicalEncoding.plaintext,
+        encodedText: libreText.encodedText,
+        fontEncoding: libreText.fontEncoding,
+        checksumValue: canonicalEncoding.checksumValue,
+      });
+    }
+
+    return {
+      kind: "encode",
+      symbology: "code128",
+      status: "success",
+      plaintext: canonicalEncoding.plaintext,
+      encodedText: libreText.encodedText,
+      fontEncoding: libreText.fontEncoding,
+      canonicalEncoding,
+      runId,
+    };
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+
+    let runId: Id<"barcodeRuns"> | undefined;
+    if (!actor.isAnonymous) {
+      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
+        kind: "encode",
+        createdBy: actor.id,
+        plaintext: args.plaintext,
+        status: "validation_error",
+        errorMessage,
+      });
+    }
+
+    return {
+      kind: "encode",
+      symbology: "code128",
+      status: "validation_error",
+      plaintext: args.plaintext,
+      errorMessage,
+      runId,
+    };
+  }
+}
+
+async function handleGenerateCode128Svg(
   ctx: ActionCtx,
   args: {
     plaintext: string;
@@ -69,6 +129,10 @@ async function handleGenerateCode128Png(
       quietZoneModules?: number;
       foreground?: string;
       background?: string;
+      labelText?: string;
+      labelGap?: number;
+      labelFontSize?: number;
+      labelFontFamily?: string;
     };
   },
 ): Promise<BarcodeRenderResult> {
@@ -77,10 +141,10 @@ async function handleGenerateCode128Png(
   try {
     const canonicalEncoding = buildCode128Encoding(args.plaintext);
     const libreText = toLibreBarcode128Text(canonicalEncoding);
-    const rendered = renderCode128Png(canonicalEncoding, args.options);
+    const rendered = renderCode128Svg(canonicalEncoding, args.options);
     const storedAsset = await storeGeneratedAsset(
       ctx,
-      new Blob([Uint8Array.from(rendered.pngBytes).buffer], { type: "image/png" }),
+      new Blob([rendered.svg], { type: "image/svg+xml;charset=utf-8" }),
     );
 
     let runId: Id<"barcodeRuns"> | undefined;
@@ -107,7 +171,7 @@ async function handleGenerateCode128Png(
       imageStorageId: storedAsset.storageId,
       imageUrl: storedAsset.imageUrl,
       canonicalEncoding,
-      pngBase64: Buffer.from(rendered.pngBytes).toString("base64"),
+      svg: rendered.svg,
       runId,
     };
   } catch (error) {
@@ -135,95 +199,17 @@ async function handleGenerateCode128Png(
   }
 }
 
-async function handleDecodeCode128Image(
-  ctx: ActionCtx,
-  args: { storageId: Id<"_storage"> },
-): Promise<BarcodeDecodeResult> {
-  const actor = await resolveActor(ctx);
-  const imageBlob = await ctx.storage.get(args.storageId);
-
-  if (!imageBlob) {
-    const errorMessage = "The uploaded image could not be found in storage.";
-
-    let runId: Id<"barcodeRuns"> | undefined;
-    if (!actor.isAnonymous) {
-      runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-        kind: "decode",
-        createdBy: actor.id,
-        inputImageStorageId: args.storageId,
-        status: "not_found",
-        errorMessage,
-      });
-    }
-
-    return {
-      kind: "decode",
-      symbology: "code128",
-      status: "not_found",
-      imageStorageId: args.storageId,
-      errorMessage,
-      runId,
-    };
-  }
-
-  const imageUrl = await ctx.storage.getUrl(args.storageId);
-  const decoded = await decodeCode128ImageFromBlob(imageBlob);
-
-  if (decoded.status === "success") {
-    let runId: Id<"barcodeRuns"> | undefined;
-    if (!actor.isAnonymous) {
-      runId = await ctx.runMutation(internal.barcodes.storeSuccessfulRun, {
-        kind: "decode",
-        createdBy: actor.id,
-        plaintext: decoded.plaintext,
-        inputImageStorageId: args.storageId,
-      });
-    }
-
-    return {
-      kind: "decode",
-      symbology: "code128",
-      status: "success",
-      plaintext: decoded.plaintext,
-      imageStorageId: args.storageId,
-      imageUrl,
-      runId,
-    };
-  }
-
-  let runId: Id<"barcodeRuns"> | undefined;
-  if (!actor.isAnonymous) {
-    runId = await ctx.runMutation(internal.barcodes.storeFailedRun, {
-      kind: "decode",
-      createdBy: actor.id,
-      inputImageStorageId: args.storageId,
-      status: decoded.status,
-      errorMessage: decoded.errorMessage,
-    });
-  }
-
-  return {
-    kind: "decode",
-    symbology: "code128",
-    status: decoded.status,
-    imageStorageId: args.storageId,
-    imageUrl,
-    errorMessage: decoded.errorMessage,
-    runId,
-  };
-}
-
-export const generateCode128Png = action({
+export const encodeCode128 = action({
   args: {
     plaintext: v.string(),
-    options: v.optional(v.object(pngRenderArgs)),
   },
-  handler: handleGenerateCode128Png,
+  handler: handleEncodeCode128,
 });
 
-export const decodeCode128Image = action({
+export const generateCode128Svg = action({
   args: {
-    storageId: v.id("_storage"),
+    plaintext: v.string(),
+    options: v.optional(v.object(svgRenderArgs)),
   },
-  handler: handleDecodeCode128Image,
+  handler: handleGenerateCode128Svg,
 });
