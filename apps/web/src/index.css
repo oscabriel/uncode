@@ -1,1 +1,26 @@
-@import "@uncode/ui/globals.css";
+@import "@cloudflare/kumo/styles/tailwind";
+@import "tailwindcss";
+
+@source "../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+@theme inline {
+  --font-sans: "Outfit", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --color-kumo-brand: #f6821f;
+  --color-kumo-brand-hover: #dd7118;
+}
+
+@layer base {
+  [data-mode="dark"] {
+    --color-kumo-base: #000000;
+  }
+
+  body {
+    @apply bg-kumo-base font-sans text-kumo-default antialiased;
+  }
+
+  html {
+    @apply scroll-smooth font-sans;
+  }
+}

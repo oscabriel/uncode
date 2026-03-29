@@ -13,7 +13,6 @@
       "jpeg-js": "^0.4.4",
       "zod": "^4.1.13",
       "@cloudflare/kumo": "*",
-      "@phosphor-icons/react": "*",
       "lucide-react": "^0.546.0",
       "react": "^19.2.3",
       "react-dom": "^19.2.3",
