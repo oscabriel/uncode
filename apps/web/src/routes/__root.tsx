@@ -8,10 +8,9 @@ import {
   createRootRouteWithContext,
   useRouteContext,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
 import { Toasty } from "@cloudflare/kumo";
-import { useEffect, useRef } from "react";
+import { lazy, useEffect, useRef } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { getToken } from "@/lib/auth-server";
@@ -20,7 +19,15 @@ import Header from "../components/header";
 
 import appCss from "../index.css?url";
 
-const getAuth = createServerFn({ method: "GET" }).handler(async () => {
+const TanStackRouterDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import("@tanstack/react-router-devtools").then((m) => ({
+        default: m.TanStackRouterDevtools,
+      })),
+    )
+  : () => null;
+
+export const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return await getToken();
 });
 
@@ -58,6 +65,13 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
   component: RootDocument,
   beforeLoad: async (ctx) => {
+    // Only fetch the auth token during SSR (initial page load).
+    // Client-side navigations skip this server round-trip entirely —
+    // the Convex WebSocket is already authenticated via the initial token
+    // and Better Auth's useSession() keeps it fresh.
+    if (typeof window !== "undefined") {
+      return { isAuthenticated: false, token: null };
+    }
     const token = await getAuth();
     if (token) {
       ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
@@ -109,7 +123,7 @@ function RootDocument() {
               <Outlet />
             </div>
           </Toasty>
-          <TanStackRouterDevtools position="bottom-left" />
+          {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
           <Scripts />
         </body>
       </html>
