@@ -23,7 +23,5 @@ export default defineSchema({
     errorMessage: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
-  })
-    .index("by_created_at", ["createdAt"])
-    .index("by_created_by_created_at", ["createdBy", "createdAt"]),
+  }).index("by_created_by_created_at", ["createdBy", "createdAt"]),
 });
