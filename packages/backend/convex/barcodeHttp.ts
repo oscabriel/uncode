@@ -74,7 +74,7 @@ export const code128Svg = httpAction(async (_ctx, request) => {
       status: 200,
       headers: {
         "Content-Type": "image/svg+xml; charset=utf-8",
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
       },
     });
   } catch (error) {
@@ -93,7 +93,7 @@ export const code128Png = httpAction(async (_ctx, request) => {
       status: 200,
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
       },
     });
   } catch (error) {

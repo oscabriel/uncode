@@ -1,8 +1,20 @@
 [build]
-  base = "."
-  command = "turbo run build --filter web"
-  publish = "/apps/web/dist/client"
+base = "."
+command = "turbo run build --filter web"
+publish = "/apps/web/dist/client"
 
 [context.dev]
-  command = "vite build"
-  publish = "dist/client"
+command = "vite build"
+publish = "dist/client"
+
+# Immutable caching for hashed build assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Short cache for the HTML document (SSR'd, may change)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
