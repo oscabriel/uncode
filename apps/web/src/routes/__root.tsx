@@ -45,17 +45,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
     links: [
       {
-        rel: "preconnect",
-        href: "https://fonts.googleapis.com",
-      },
-      {
-        rel: "preconnect",
-        href: "https://fonts.gstatic.com",
-        crossOrigin: "",
-      },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/favicon.svg",
       },
       {
         rel: "stylesheet",
