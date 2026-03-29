@@ -1,4 +1,8 @@
 [build]
   base = "."
+  command = "turbo run build --filter web"
+  publish = "/apps/web/dist/client"
+
+[context.dev]
   command = "vite build"
   publish = "dist/client"
