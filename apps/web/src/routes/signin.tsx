@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { api } from "@uncode/backend/convex/_generated/api";
 import { Button } from "@cloudflare/kumo";
 import { useQuery } from "convex/react";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/signin")({
 });
 
 function RouteComponent() {
-  const [showSignIn, setShowSignIn] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(true);
   const currentUser = useQuery(api.auth.getCurrentUser);
 
   // Still loading — getCurrentUser returns `undefined` while the query is in flight.
@@ -45,6 +45,7 @@ function RouteComponent() {
 
 function AccountView() {
   const user = useQuery(api.auth.getCurrentUser);
+  const navigate = useNavigate();
 
   return (
     <main className="min-h-0 overflow-y-auto">
@@ -68,7 +69,7 @@ function AccountView() {
                 onClick={() =>
                   authClient.signOut({
                     fetchOptions: {
-                      onSuccess: () => location.reload(),
+                      onSuccess: () => navigate({ to: "/" }),
                     },
                   })
                 }

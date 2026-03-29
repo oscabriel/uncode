@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { api } from "@uncode/backend/convex/_generated/api";
-import { buttonVariants } from "@cloudflare/kumo";
 import { useQuery } from "convex/react";
 
 import UserMenu from "./user-menu";
@@ -39,7 +38,10 @@ export default function Header() {
           {user === undefined ? null : user && !user.isAnonymous ? (
             <UserMenu />
           ) : (
-            <Link to="/signin" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <Link
+              to="/signin"
+              className="rounded-md px-3 py-1.5 text-[13px] font-medium text-kumo-subtle transition-colors hover:text-kumo-default [&.active]:text-kumo-default"
+            >
               Sign in
             </Link>
           )}

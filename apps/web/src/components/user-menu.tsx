@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@uncode/backend/convex/_generated/api";
 import { Button, DropdownMenu } from "@cloudflare/kumo";
 import { useQuery } from "convex/react";
@@ -6,6 +7,7 @@ import { authClient } from "@/lib/auth-client";
 
 export default function UserMenu() {
   const user = useQuery(api.auth.getCurrentUser);
+  const navigate = useNavigate();
 
   return (
     <DropdownMenu>
@@ -25,7 +27,7 @@ export default function UserMenu() {
             authClient.signOut({
               fetchOptions: {
                 onSuccess: () => {
-                  location.reload();
+                  navigate({ to: "/" });
                 },
               },
             });

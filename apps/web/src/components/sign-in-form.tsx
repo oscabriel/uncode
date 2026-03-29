@@ -99,7 +99,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
               <Button
                 variant="primary"
                 type="submit"
-                className="w-full"
+                className="w-full justify-center"
                 disabled={!canSubmit || isSubmitting}
               >
                 {isSubmitting ? "Signing in..." : "Sign in"}

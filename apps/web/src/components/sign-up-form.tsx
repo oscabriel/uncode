@@ -118,7 +118,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
               <Button
                 variant="primary"
                 type="submit"
-                className="w-full"
+                className="w-full justify-center"
                 disabled={!canSubmit || isSubmitting}
               >
                 {isSubmitting ? "Creating account..." : "Create account"}
