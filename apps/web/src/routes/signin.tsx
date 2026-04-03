@@ -9,6 +9,7 @@ import SignUpForm from "@/components/sign-up-form";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/signin")({
+  ssr: false,
   head: () => ({
     meta: [{ title: "Uncode | Account" }],
   }),

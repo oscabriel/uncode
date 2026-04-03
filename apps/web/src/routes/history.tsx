@@ -14,6 +14,7 @@ const RECENT_RUNS_QUERY = convexQuery(api.barcodes.listRecentRuns, {
 });
 
 export const Route = createFileRoute("/history")({
+  ssr: false,
   head: () => ({
     meta: [{ title: "Uncode | History" }],
   }),

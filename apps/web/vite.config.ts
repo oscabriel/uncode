@@ -10,7 +10,30 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      prerender: {
+        enabled: true,
+        autoStaticPathsDiscovery: false,
+        crawlLinks: false,
+      },
+      pages: [
+        {
+          path: "/",
+          prerender: {
+            enabled: true,
+            outputPath: "/index.html",
+            crawlLinks: false,
+          },
+        },
+      ],
+      spa: {
+        enabled: true,
+        prerender: {
+          crawlLinks: false,
+          retryCount: 0,
+        },
+      },
+    }),
     viteReact(),
     netlify() as PluginOption,
   ],

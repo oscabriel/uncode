@@ -1,4 +1,3 @@
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -7,17 +6,17 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouteContext,
+  useRouterState,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { Toasty } from "@cloudflare/kumo";
-import { lazy, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-import { authClient } from "@/lib/auth-client";
-import { getToken } from "@/lib/auth-server";
+import Loader from "@/components/loader";
 
 import Header from "../components/header";
 
 import appCss from "../index.css?url";
+
+const AppProviders = lazy(() => import("../components/app-providers"));
 
 const TanStackRouterDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -26,10 +25,6 @@ const TanStackRouterDevtools = import.meta.env.DEV
       })),
     )
   : () => null;
-
-export const getAuth = createServerFn({ method: "GET" }).handler(async () => {
-  return await getToken();
-});
 
 export interface RouterAppContext {
   queryClient: QueryClient;
@@ -55,6 +50,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         rel: "icon",
         type: "image/svg+xml",
         href: "/favicon.svg",
+        sizes: "any",
       },
       {
         rel: "stylesheet",
@@ -64,69 +60,57 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 
   component: RootDocument,
-  beforeLoad: async (ctx) => {
-    // Only fetch the auth token during SSR (initial page load).
-    // Client-side navigations skip this server round-trip entirely —
-    // the Convex WebSocket is already authenticated via the initial token
-    // and Better Auth's useSession() keeps it fresh.
-    if (typeof window !== "undefined") {
-      return { isAuthenticated: false, token: null };
-    }
-    const token = await getAuth();
-    if (token) {
-      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
-    }
-    return {
-      isAuthenticated: !!token,
-      token,
-    };
-  },
 });
-
-/**
- * Automatically signs in users anonymously when there is no active session.
- * This ensures every visitor gets a Better Auth identity so Convex functions
- * always have a `ctx.auth` identity available.  Anonymous runs are kept
- * client-side in sessionStorage; only real (linked) accounts persist to the DB.
- */
-function AutoAnonymousSignIn() {
-  const { data: session, isPending } = authClient.useSession();
-  const attemptedRef = useRef(false);
-
-  useEffect(() => {
-    if (isPending || session || attemptedRef.current) return;
-    attemptedRef.current = true;
-    authClient.signIn.anonymous();
-  }, [isPending, session]);
-
-  return null;
-}
 
 function RootDocument() {
   const context = useRouteContext({ from: Route.id });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [hasActivatedProviders, setHasActivatedProviders] = useState(pathname !== "/");
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== "/") {
+      setHasActivatedProviders(true);
+    }
+  }, [pathname]);
+
+  const enableAnonymousSession = pathname !== "/" && pathname !== "/signin";
+  const shouldUseProviders = pathname !== "/" || hasActivatedProviders;
+
+  const appShell = (
+    <div className="grid h-svh grid-rows-[auto_1fr]">
+      <Header />
+      <Outlet />
+    </div>
+  );
 
   return (
-    <ConvexBetterAuthProvider
-      client={context.convexQueryClient.convexClient}
-      authClient={authClient}
-      initialToken={context.token}
-    >
-      <AutoAnonymousSignIn />
-      <html lang="en" data-mode="dark">
-        <head>
-          <HeadContent />
-        </head>
-        <body>
-          <Toasty>
-            <div className="grid h-svh grid-rows-[auto_1fr]">
-              <Header />
-              <Outlet />
-            </div>
-          </Toasty>
-          {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
-          <Scripts />
-        </body>
-      </html>
-    </ConvexBetterAuthProvider>
+    <html lang="en" data-mode="dark">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {shouldUseProviders ? (
+          <Suspense fallback={<Loader />}>
+            <AppProviders
+              client={context.convexQueryClient.convexClient}
+              enableAnonymousSession={enableAnonymousSession}
+            >
+              {appShell}
+            </AppProviders>
+          </Suspense>
+        ) : pathname === "/" ? (
+          appShell
+        ) : isHydrated ? (
+          <Loader />
+        ) : null}
+        {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-left" />}
+        <Scripts />
+      </body>
+    </html>
   );
 }

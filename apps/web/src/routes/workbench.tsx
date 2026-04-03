@@ -17,6 +17,7 @@ import { addSessionRun } from "@/lib/session-run-store";
 import { env } from "@uncode/env/web";
 
 export const Route = createFileRoute("/workbench")({
+  ssr: false,
   head: () => ({
     meta: [{ title: "Uncode | Workbench" }],
   }),

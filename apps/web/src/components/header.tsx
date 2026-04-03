@@ -1,12 +1,20 @@
 import { Link } from "@tanstack/react-router";
-import { api } from "@uncode/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { lazy, Suspense } from "react";
 
-import UserMenu from "./user-menu";
+const HeaderAuthControls = lazy(() => import("./header-auth-controls"));
+
+function SignInLink() {
+  return (
+    <Link
+      to="/signin"
+      className="rounded-md px-3 py-1.5 text-[13px] font-medium text-kumo-subtle transition-colors hover:text-kumo-default [&.active]:text-kumo-default"
+    >
+      Sign in
+    </Link>
+  );
+}
 
 export default function Header() {
-  const user = useQuery(api.auth.getCurrentUser);
-
   return (
     <header>
       <div className="mx-auto grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] items-center px-6 py-3">
@@ -35,16 +43,9 @@ export default function Header() {
         </nav>
 
         <div className="flex justify-end">
-          {user === undefined ? null : user && !user.isAnonymous ? (
-            <UserMenu />
-          ) : (
-            <Link
-              to="/signin"
-              className="rounded-md px-3 py-1.5 text-[13px] font-medium text-kumo-subtle transition-colors hover:text-kumo-default [&.active]:text-kumo-default"
-            >
-              Sign in
-            </Link>
-          )}
+          <Suspense fallback={<SignInLink />}>
+            <HeaderAuthControls />
+          </Suspense>
         </div>
       </div>
     </header>
