@@ -5,7 +5,7 @@ import { anonymous } from "better-auth/plugins";
 
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { internalQuery, query } from "./_generated/server";
+import { internalAction, internalQuery, query } from "./_generated/server";
 import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL!;
@@ -35,6 +35,7 @@ function createAuth(ctx: GenericCtx<DataModel>) {
       }),
       convex({
         authConfig,
+        jwks: process.env.JWKS,
         jwksRotateOnTokenGenerationError: true,
       }),
     ],
@@ -42,6 +43,14 @@ function createAuth(ctx: GenericCtx<DataModel>) {
 }
 
 export { createAuth };
+
+export const rotateKeys = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const auth = createAuth(ctx);
+    return await auth.api.rotateKeys();
+  },
+});
 
 export const getCurrentUser = query({
   args: {},

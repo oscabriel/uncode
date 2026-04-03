@@ -7,6 +7,11 @@ publish = "/apps/web/dist/client"
 command = "vite build"
 publish = "dist/client"
 
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.svg"
+  status = 200
+
 # Immutable caching for hashed build assets
 [[headers]]
   for = "/assets/*"
