@@ -29,7 +29,10 @@ function splitCsvLine(line: string) {
 }
 
 function normalizeHeader(value: string) {
-  return value.trim().toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, "");
 }
 
 function getColumnIndex(headers: string[], aliases: string[]) {
@@ -47,15 +50,26 @@ export function parseBarcodeRows(input: string, defaultSymbology: string): Parse
   const rows = lines.map((line) => (delimiter === "\t" ? line.split("\t") : splitCsvLine(line)));
   const firstRow = rows[0] ?? [];
   const headers = firstRow.map(normalizeHeader);
-  const plaintextIndex = getColumnIndex(firstRow, ["plaintext", "text", "value", "barcode", "data"]);
+  const plaintextIndex = getColumnIndex(firstRow, [
+    "plaintext",
+    "text",
+    "value",
+    "barcode",
+    "data",
+  ]);
   const nameIndex = getColumnIndex(firstRow, ["name", "label", "title"]);
   const typeIndex = getColumnIndex(firstRow, ["type", "symbology", "barcodetype"]);
-  const hasHeaders = plaintextIndex >= 0 || nameIndex >= 0 || typeIndex >= 0 || headers.includes("value");
+  const hasHeaders =
+    plaintextIndex >= 0 || nameIndex >= 0 || typeIndex >= 0 || headers.includes("value");
   const dataRows = hasHeaders ? rows.slice(1) : rows;
 
   return dataRows
     .map((row) => {
-      const plaintext = hasHeaders ? row[plaintextIndex >= 0 ? plaintextIndex : 0] : row.length > 1 ? row[1] : row[0];
+      const plaintext = hasHeaders
+        ? row[plaintextIndex >= 0 ? plaintextIndex : 0]
+        : row.length > 1
+          ? row[1]
+          : row[0];
       const name = hasHeaders ? row[nameIndex] : row.length > 1 ? row[0] : plaintext;
       const symbology = hasHeaders ? row[typeIndex] : row[2];
       return {

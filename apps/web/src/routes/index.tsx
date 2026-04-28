@@ -76,7 +76,11 @@ function HomeComponent() {
           <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-kumo-subtle">
             {SUPPORTED_SYMBOLOGIES.map((label, i) => (
               <span key={label} className="flex items-center gap-2">
-                {i > 0 && <span aria-hidden className="text-kumo-line">·</span>}
+                {i > 0 && (
+                  <span aria-hidden className="text-kumo-line">
+                    ·
+                  </span>
+                )}
                 <span>{label}</span>
               </span>
             ))}

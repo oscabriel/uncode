@@ -39,7 +39,11 @@ export const createListFromRows = action({
       args.items.map(async (item, index) => {
         const plaintext = item.plaintext.trim();
         if (!plaintext) {
-          failures.push({ row: index + 1, plaintext, errorMessage: "Plaintext value is required." });
+          failures.push({
+            row: index + 1,
+            plaintext,
+            errorMessage: "Plaintext value is required.",
+          });
           return null;
         }
         try {
@@ -81,9 +85,9 @@ export const createListFromRows = action({
     const result: { listId: string; slugKey: string; itemCount: number } = await ctx.runMutation(
       internal.barcode.lists.persistEncodedList,
       {
-      createdBy: identity.tokenIdentifier,
-      name: listName.slice(0, 120),
-      items: encodedItems.filter((item) => item !== null),
+        createdBy: identity.tokenIdentifier,
+        name: listName.slice(0, 120),
+        items: encodedItems.filter((item) => item !== null),
       },
     );
 

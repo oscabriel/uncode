@@ -111,8 +111,7 @@ function ListDetailComponent() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{listData.list.name}</h1>
               <p className="mt-1 text-sm text-kumo-subtle">
-                {listData.items.length}{" "}
-                {listData.items.length === 1 ? "barcode" : "barcodes"}
+                {listData.items.length} {listData.items.length === 1 ? "barcode" : "barcodes"}
               </p>
             </div>
             <button
