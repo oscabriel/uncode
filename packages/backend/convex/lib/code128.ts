@@ -7,11 +7,13 @@ type EncodingPlan = {
 };
 
 const START_CODE_VALUES: Record<Code128CodeSet, number> = {
+  A: 103,
   B: 104,
   C: 105,
 };
 
 const SWITCH_CODE_VALUES: Record<Code128CodeSet, number> = {
+  A: 101,
   B: 100,
   C: 99,
 };
@@ -134,16 +136,16 @@ const EMPTY_PLAN: EncodingPlan = {
   symbolCount: 0,
 };
 
-function assertPocSafeInput(plaintext: string) {
+function assertSupportedInput(plaintext: string) {
   if (plaintext.length === 0) {
     throw new Error("Plaintext is required for Code 128 encoding.");
   }
 
   for (const character of plaintext) {
     const codePoint = character.charCodeAt(0);
-    if (codePoint < 32 || codePoint > 126) {
+    if (codePoint < 0 || codePoint > 126) {
       throw new Error(
-        `Unsupported character ${JSON.stringify(character)}. POC encoding currently supports printable ASCII only.`,
+        `Unsupported character ${JSON.stringify(character)}. Code 128 encoding currently supports ASCII 0-126.`,
       );
     }
   }
@@ -155,6 +157,20 @@ function isNumericPair(plaintext: string, index: number) {
 
 function codeValueForCodeSetB(character: string) {
   return character.charCodeAt(0) - 32;
+}
+
+function canEncodeInCodeSetA(character: string) {
+  return character.charCodeAt(0) <= 95;
+}
+
+function canEncodeInCodeSetB(character: string) {
+  const codePoint = character.charCodeAt(0);
+  return codePoint >= 32 && codePoint <= 126;
+}
+
+function codeValueForCodeSetA(character: string) {
+  const codePoint = character.charCodeAt(0);
+  return codePoint < 32 ? codePoint + 64 : codePoint - 32;
 }
 
 function codeValueForCodeSetC(plaintext: string, index: number) {
@@ -184,6 +200,7 @@ function chooseBetterPlan(
 function encodeFromCodeSetB(
   plaintext: string,
   index: number,
+  memoA: Map<number, EncodingPlan>,
   memoB: Map<number, EncodingPlan>,
   memoC: Map<number, EncodingPlan>,
 ): EncodingPlan {
@@ -196,15 +213,19 @@ function encodeFromCodeSetB(
     return cachedPlan;
   }
 
-  const nextPlan = encodeFromCodeSetB(plaintext, index + 1, memoB, memoC);
-  let bestPlan: EncodingPlan = {
-    codeValues: [codeValueForCodeSetB(plaintext[index]!), ...nextPlan.codeValues],
-    transitions: nextPlan.transitions,
-    symbolCount: 1 + nextPlan.symbolCount,
-  };
+  let bestPlan: EncodingPlan | null = null;
+
+  if (canEncodeInCodeSetB(plaintext[index]!)) {
+    const nextPlan = encodeFromCodeSetB(plaintext, index + 1, memoA, memoB, memoC);
+    bestPlan = {
+      codeValues: [codeValueForCodeSetB(plaintext[index]!), ...nextPlan.codeValues],
+      transitions: nextPlan.transitions,
+      symbolCount: 1 + nextPlan.symbolCount,
+    };
+  }
 
   if (isNumericPair(plaintext, index)) {
-    const afterSwitchPlan = encodeFromCodeSetC(plaintext, index + 2, memoB, memoC);
+    const afterSwitchPlan = encodeFromCodeSetC(plaintext, index + 2, memoA, memoB, memoC);
     const switchPlan: EncodingPlan = {
       codeValues: [
         SWITCH_CODE_VALUES.C,
@@ -218,13 +239,96 @@ function encodeFromCodeSetB(
     bestPlan = chooseBetterPlan(bestPlan, switchPlan);
   }
 
+  if (canEncodeInCodeSetA(plaintext[index]!)) {
+    const afterSwitchPlan = encodeFromCodeSetA(plaintext, index + 1, memoA, memoB, memoC);
+    const switchPlan: EncodingPlan = {
+      codeValues: [
+        SWITCH_CODE_VALUES.A,
+        codeValueForCodeSetA(plaintext[index]!),
+        ...afterSwitchPlan.codeValues,
+      ],
+      transitions: [{ atInputIndex: index, toCodeSet: "A" }, ...afterSwitchPlan.transitions],
+      symbolCount: 2 + afterSwitchPlan.symbolCount,
+    };
+
+    bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+  }
+
+  if (!bestPlan) {
+    throw new Error(`Unsupported character ${JSON.stringify(plaintext[index])}.`);
+  }
+
   memoB.set(index, bestPlan);
+  return bestPlan;
+}
+
+function encodeFromCodeSetA(
+  plaintext: string,
+  index: number,
+  memoA: Map<number, EncodingPlan>,
+  memoB: Map<number, EncodingPlan>,
+  memoC: Map<number, EncodingPlan>,
+): EncodingPlan {
+  if (index >= plaintext.length) {
+    return EMPTY_PLAN;
+  }
+
+  const cachedPlan = memoA.get(index);
+  if (cachedPlan) {
+    return cachedPlan;
+  }
+
+  let bestPlan: EncodingPlan | null = null;
+
+  if (canEncodeInCodeSetA(plaintext[index]!)) {
+    const nextPlan = encodeFromCodeSetA(plaintext, index + 1, memoA, memoB, memoC);
+    bestPlan = {
+      codeValues: [codeValueForCodeSetA(plaintext[index]!), ...nextPlan.codeValues],
+      transitions: nextPlan.transitions,
+      symbolCount: 1 + nextPlan.symbolCount,
+    };
+  }
+
+  if (canEncodeInCodeSetB(plaintext[index]!)) {
+    const afterSwitchPlan = encodeFromCodeSetB(plaintext, index + 1, memoA, memoB, memoC);
+    const switchPlan: EncodingPlan = {
+      codeValues: [
+        SWITCH_CODE_VALUES.B,
+        codeValueForCodeSetB(plaintext[index]!),
+        ...afterSwitchPlan.codeValues,
+      ],
+      transitions: [{ atInputIndex: index, toCodeSet: "B" }, ...afterSwitchPlan.transitions],
+      symbolCount: 2 + afterSwitchPlan.symbolCount,
+    };
+    bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+  }
+
+  if (isNumericPair(plaintext, index)) {
+    const afterSwitchPlan = encodeFromCodeSetC(plaintext, index + 2, memoA, memoB, memoC);
+    const switchPlan: EncodingPlan = {
+      codeValues: [
+        SWITCH_CODE_VALUES.C,
+        codeValueForCodeSetC(plaintext, index),
+        ...afterSwitchPlan.codeValues,
+      ],
+      transitions: [{ atInputIndex: index, toCodeSet: "C" }, ...afterSwitchPlan.transitions],
+      symbolCount: 2 + afterSwitchPlan.symbolCount,
+    };
+    bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+  }
+
+  if (!bestPlan) {
+    throw new Error(`Unsupported character ${JSON.stringify(plaintext[index])}.`);
+  }
+
+  memoA.set(index, bestPlan);
   return bestPlan;
 }
 
 function encodeFromCodeSetC(
   plaintext: string,
   index: number,
+  memoA: Map<number, EncodingPlan>,
   memoB: Map<number, EncodingPlan>,
   memoC: Map<number, EncodingPlan>,
 ): EncodingPlan {
@@ -240,7 +344,7 @@ function encodeFromCodeSetC(
   let bestPlan: EncodingPlan | null = null;
 
   if (isNumericPair(plaintext, index)) {
-    const nextPlan = encodeFromCodeSetC(plaintext, index + 2, memoB, memoC);
+    const nextPlan = encodeFromCodeSetC(plaintext, index + 2, memoA, memoB, memoC);
     bestPlan = {
       codeValues: [codeValueForCodeSetC(plaintext, index), ...nextPlan.codeValues],
       transitions: nextPlan.transitions,
@@ -248,18 +352,39 @@ function encodeFromCodeSetC(
     };
   }
 
-  const afterSwitchPlan = encodeFromCodeSetB(plaintext, index + 1, memoB, memoC);
-  const switchPlan: EncodingPlan = {
-    codeValues: [
-      SWITCH_CODE_VALUES.B,
-      codeValueForCodeSetB(plaintext[index]!),
-      ...afterSwitchPlan.codeValues,
-    ],
-    transitions: [{ atInputIndex: index, toCodeSet: "B" }, ...afterSwitchPlan.transitions],
-    symbolCount: 2 + afterSwitchPlan.symbolCount,
-  };
+  if (canEncodeInCodeSetB(plaintext[index]!)) {
+    const afterSwitchPlan = encodeFromCodeSetB(plaintext, index + 1, memoA, memoB, memoC);
+    const switchPlan: EncodingPlan = {
+      codeValues: [
+        SWITCH_CODE_VALUES.B,
+        codeValueForCodeSetB(plaintext[index]!),
+        ...afterSwitchPlan.codeValues,
+      ],
+      transitions: [{ atInputIndex: index, toCodeSet: "B" }, ...afterSwitchPlan.transitions],
+      symbolCount: 2 + afterSwitchPlan.symbolCount,
+    };
 
-  bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+    bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+  }
+
+  if (canEncodeInCodeSetA(plaintext[index]!)) {
+    const afterSwitchPlan = encodeFromCodeSetA(plaintext, index + 1, memoA, memoB, memoC);
+    const switchPlan: EncodingPlan = {
+      codeValues: [
+        SWITCH_CODE_VALUES.A,
+        codeValueForCodeSetA(plaintext[index]!),
+        ...afterSwitchPlan.codeValues,
+      ],
+      transitions: [{ atInputIndex: index, toCodeSet: "A" }, ...afterSwitchPlan.transitions],
+      symbolCount: 2 + afterSwitchPlan.symbolCount,
+    };
+
+    bestPlan = chooseBetterPlan(bestPlan, switchPlan);
+  }
+
+  if (!bestPlan) {
+    throw new Error(`Unsupported character ${JSON.stringify(plaintext[index])}.`);
+  }
   memoC.set(index, bestPlan);
   return bestPlan;
 }
@@ -295,20 +420,44 @@ function patternToModuleWidths(pattern: string) {
 }
 
 export function encodeCode128(plaintext: string): Code128Encoding {
-  assertPocSafeInput(plaintext);
+  assertSupportedInput(plaintext);
 
+  const memoA = new Map<number, EncodingPlan>();
   const memoB = new Map<number, EncodingPlan>();
   const memoC = new Map<number, EncodingPlan>();
 
-  const startInCodeSetB = encodeFromCodeSetB(plaintext, 0, memoB, memoC);
-  let startCode: Code128CodeSet = "B";
-  let bestPlan = startInCodeSetB;
+  const startInCodeSetB = canEncodeInCodeSetB(plaintext[0]!)
+    ? encodeFromCodeSetB(plaintext, 0, memoA, memoB, memoC)
+    : null;
+  const startInCodeSetA = canEncodeInCodeSetA(plaintext[0]!)
+    ? encodeFromCodeSetA(plaintext, 0, memoA, memoB, memoC)
+    : null;
+  let startCode: Code128CodeSet = startInCodeSetB ? "B" : "A";
+  let bestPlan = startInCodeSetB ?? startInCodeSetA;
+
+  if (!bestPlan) {
+    throw new Error(`Unsupported character ${JSON.stringify(plaintext[0])}.`);
+  }
+
+  if (startInCodeSetA) {
+    bestPlan = chooseBetterPlan(bestPlan, startInCodeSetA);
+    if (
+      bestPlan === startInCodeSetA &&
+      (!startInCodeSetB || startInCodeSetA.symbolCount < startInCodeSetB.symbolCount)
+    ) {
+      startCode = "A";
+    }
+  }
 
   if (isNumericPair(plaintext, 0)) {
-    const startInCodeSetC = encodeFromCodeSetC(plaintext, 0, memoB, memoC);
-    bestPlan = chooseBetterPlan(startInCodeSetB, startInCodeSetC);
+    const previousBestPlan = bestPlan;
+    const startInCodeSetC = encodeFromCodeSetC(plaintext, 0, memoA, memoB, memoC);
+    bestPlan = chooseBetterPlan(bestPlan, startInCodeSetC);
 
-    if (bestPlan === startInCodeSetC && startInCodeSetC.symbolCount < startInCodeSetB.symbolCount) {
+    if (
+      bestPlan === startInCodeSetC &&
+      startInCodeSetC.symbolCount < previousBestPlan.symbolCount
+    ) {
       startCode = "C";
     }
   }

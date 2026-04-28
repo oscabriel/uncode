@@ -6,7 +6,9 @@ import type {
   BarcodeDecodeResult,
   BarcodeEncodeActionResult,
   BarcodeRenderResult,
+  BarcodeSymbology,
 } from "@uncode/backend/convex/lib/barcodeTypes";
+import type { BarcodeTypeClientDefinition } from "@uncode/backend/convex/barcode/types";
 import { Badge, Button, buttonVariants, cn, useKumoToastManager } from "@cloudflare/kumo";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowRight, CheckCircle2, Copy, Download, Loader2, Upload } from "lucide-react";
@@ -33,13 +35,62 @@ const RECENT_RUNS_QUERY = convexQuery(api.barcodes.listRecentRuns, {
   limit: HISTORY_LIMIT,
 });
 
-function buildBarcodeAssetUrl(format: "svg" | "png", plaintext: string) {
-  const url = new URL(`/barcode/code128.${format}`, env.VITE_CONVEX_SITE_URL);
-  url.searchParams.set("text", plaintext);
-  url.searchParams.set("moduleWidth", format === "svg" ? "3" : "4");
-  url.searchParams.set("barcodeHeight", format === "svg" ? "96" : "112");
-  url.searchParams.set("quietZoneModules", "12");
-  if (format === "svg") url.searchParams.set("label", "true");
+function getDefaultRenderOptions(
+  format: "svg" | "png",
+  plaintext: string,
+  symbology = "code128",
+): Record<string, string | number | boolean> {
+  if (symbology === "qr") {
+    return {
+      size: 275,
+      qz: 2,
+      correction: "M",
+      foreground: "#111111",
+      background: "#ffffff",
+    };
+  }
+
+  if (symbology === "ean13" || symbology === "ean8" || symbology === "upca") {
+    return {
+      moduleWidth: format === "svg" ? 3 : 4,
+      barcodeHeight: format === "svg" ? 96 : 112,
+      quietZoneModules: 12,
+      foreground: "#111111",
+      background: "#ffffff",
+    };
+  }
+
+  return {
+    moduleWidth: format === "svg" ? 3 : 4,
+    barcodeHeight: format === "svg" ? 96 : 112,
+    quietZoneModules: 12,
+    ...(format === "svg"
+      ? {
+          labelText: plaintext,
+          labelGap: 12,
+          labelFontSize: 15,
+          foreground: "#111111",
+          background: "#ffffff",
+        }
+      : {
+          foreground: "#111111",
+          background: "#ffffff",
+        }),
+  };
+}
+
+function buildBarcodeAssetUrl(args: {
+  format: "svg" | "png";
+  symbology: string;
+  plaintext: string;
+  options?: Record<string, string | number | boolean>;
+}) {
+  const url = new URL(`/barcode/render.${args.format}`, env.VITE_CONVEX_SITE_URL);
+  url.searchParams.set("type", args.symbology);
+  url.searchParams.set("text", args.plaintext);
+  for (const [key, value] of Object.entries(args.options ?? {})) {
+    url.searchParams.set(key, String(value));
+  }
   return url.toString();
 }
 
@@ -47,6 +98,7 @@ type BatchResult = {
   plaintext: string;
   encodedText?: string;
   status: string;
+  symbology: string;
   errorMessage?: string;
 };
 
@@ -55,14 +107,18 @@ function WorkbenchComponent() {
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useQuery(api.auth.getCurrentUser);
+  const barcodeTypes = useQuery(api.barcodeTypes.list);
   const isAnonymous = !currentUser || currentUser.isAnonymous;
   const generateUploadUrl = useMutation(api.barcodes.generateUploadUrl);
-  const encodeCode128 = useAction(api.barcodeActions.encodeCode128);
-  const generateCode128Svg = useAction(api.barcodeActions.generateCode128Svg);
-  const decodeCode128Image = useAction(api.barcodeNode.decodeCode128Image);
+  const batchEncodeBarcodes = useAction(api.barcode.batch.batchEncodeBarcodes);
+  const generateBarcodeSvg = useAction(api.barcodeActions.generateBarcodeSvg);
+  const decodeBarcodeImage = useAction(api.barcodeNode.decodeBarcodeImage);
+  const createShare = useMutation(api.barcode.shares.createShare);
   const toasts = useKumoToastManager();
 
   const [plaintext, setPlaintext] = useState(initialText ?? "");
+  const [selectedSymbology, setSelectedSymbology] = useState<BarcodeSymbology>("code128");
+  const [renderOptions, setRenderOptions] = useState<Record<string, string | number | boolean>>({});
   const [pendingAction, setPendingAction] = useState<"generate" | "decode" | null>(null);
   const [result, setResult] = useState<
     BarcodeEncodeActionResult | BarcodeRenderResult | BarcodeDecodeResult | null
@@ -90,19 +146,63 @@ function WorkbenchComponent() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
 
+  const selectedBarcodeType = barcodeTypes?.find((type) => type.symbology === selectedSymbology);
+
+  useEffect(() => {
+    if (!selectedBarcodeType) return;
+    const defaults = Object.fromEntries(
+      Object.entries(selectedBarcodeType.options).map(([key, option]) => [key, option.default]),
+    );
+    setRenderOptions(defaults);
+  }, [selectedBarcodeType]);
+
   const svgDownloadUrl = useMemo(() => {
     if (result?.kind === "render" && result.svg && result.imageUrl) return result.imageUrl;
-    return result?.plaintext ? buildBarcodeAssetUrl("svg", result.plaintext) : undefined;
+    return result?.plaintext
+      ? buildBarcodeAssetUrl({
+          format: "svg",
+          symbology: result.symbology,
+          plaintext: result.plaintext,
+          options: renderOptions,
+        })
+      : undefined;
   }, [result]);
 
   const pngDownloadUrl = useMemo(() => {
-    return result?.plaintext ? buildBarcodeAssetUrl("png", result.plaintext) : undefined;
-  }, [result?.plaintext]);
+    return result?.plaintext
+      ? buildBarcodeAssetUrl({
+          format: "png",
+          symbology: result.symbology,
+          plaintext: result.plaintext,
+          options: renderOptions,
+        })
+      : undefined;
+  }, [result]);
 
   async function refreshHistory() {
     await queryClient.invalidateQueries({
       queryKey: RECENT_RUNS_QUERY.queryKey,
     });
+  }
+
+  async function handleShareCurrent() {
+    const item = result?.plaintext
+      ? { symbology: result.symbology, plaintext: result.plaintext }
+      : batchResults.find((batchResult) => batchResult.status === "success");
+    if (!item) return;
+    const share = await createShare({
+      items: [
+        {
+          symbology: item.symbology as BarcodeSymbology,
+          plaintext: item.plaintext,
+          outputFormat: "svg",
+          options: renderOptions,
+        },
+      ],
+    });
+    const url = `${window.location.origin}/share/${share.shareKey}`;
+    await navigator.clipboard.writeText(url);
+    toasts.add({ title: "Share link copied.", variant: "success" });
   }
 
   async function handleGenerate() {
@@ -126,17 +226,12 @@ function WorkbenchComponent() {
     setPendingAction("generate");
     setBatchResults([]);
     try {
-      const r = await generateCode128Svg({
+      const r = await generateBarcodeSvg({
+        symbology: selectedSymbology,
         plaintext: text,
         options: {
-          moduleWidth: 3,
-          barcodeHeight: 96,
-          quietZoneModules: 12,
-          labelText: text,
-          labelGap: 12,
-          labelFontSize: 15,
-          foreground: "#111111",
-          background: "#ffffff",
+          ...renderOptions,
+          labelText: renderOptions.labelText === true ? text : renderOptions.labelText,
         },
       });
       setResult(r);
@@ -144,6 +239,7 @@ function WorkbenchComponent() {
         addSessionRun({
           kind: r.kind,
           status: r.status,
+          symbology: r.symbology,
           plaintext: r.plaintext,
           errorMessage: r.errorMessage,
         });
@@ -168,25 +264,13 @@ function WorkbenchComponent() {
     setPendingAction("generate");
     setResult(null);
     setBatchResults([]);
-    const results: BatchResult[] = [];
-
-    for (const line of lines) {
-      try {
-        const r = await encodeCode128({ plaintext: line });
-        results.push({
-          plaintext: line,
-          encodedText: r.encodedText,
-          status: r.status,
-          errorMessage: r.errorMessage,
-        });
-      } catch (error) {
-        results.push({
-          plaintext: line,
-          status: "validation_error",
-          errorMessage: error instanceof Error ? error.message : "Encoding failed",
-        });
-      }
-    }
+    const results = await batchEncodeBarcodes({
+      items: lines.map((line) => ({
+        plaintext: line,
+        symbology: selectedSymbology,
+        options: renderOptions,
+      })),
+    });
 
     setBatchResults(results);
     if (isAnonymous) {
@@ -194,6 +278,7 @@ function WorkbenchComponent() {
         addSessionRun({
           kind: "encode",
           status: r.status,
+          symbology: r.symbology,
           plaintext: r.plaintext,
           errorMessage: r.errorMessage,
         });
@@ -230,14 +315,16 @@ function WorkbenchComponent() {
       };
       if (!uploadResult.storageId) throw new Error("No storage ID returned.");
 
-      const r = await decodeCode128Image({
+      const r = await decodeBarcodeImage({
         storageId: uploadResult.storageId as never,
+        symbology: selectedSymbology,
       });
       setResult(r);
       if (isAnonymous) {
         addSessionRun({
           kind: r.kind,
           status: r.status,
+          symbology: r.symbology,
           plaintext: r.plaintext,
           errorMessage: r.errorMessage,
         });
@@ -304,18 +391,29 @@ function WorkbenchComponent() {
                 e.preventDefault();
                 handleGenerate();
               }}
-              className="flex gap-3"
+              className="space-y-3"
             >
-              <textarea
-                value={plaintext}
-                onChange={(e) => setPlaintext(e.target.value)}
-                placeholder="Enter text to encode — one per line for batch"
-                autoComplete="off"
-                spellCheck={false}
-                rows={textareaRows}
-                className="min-h-12 flex-1 resize-y rounded-xl border border-kumo-line bg-kumo-elevated px-5 py-3 text-[15px] text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
-              />
-              <div className="flex items-start">
+              <div className="grid gap-3 sm:grid-cols-[12rem_1fr_auto]">
+                <select
+                  value={selectedSymbology}
+                  onChange={(e) => setSelectedSymbology(e.target.value as BarcodeSymbology)}
+                  className="h-12 rounded-xl border border-kumo-line bg-kumo-elevated px-4 text-sm text-kumo-default focus:border-kumo-default/30 focus:outline-none"
+                >
+                  {(barcodeTypes ?? []).map((type) => (
+                    <option key={type.symbology} value={type.symbology}>
+                      {type.displayName}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  value={plaintext}
+                  onChange={(e) => setPlaintext(e.target.value)}
+                  placeholder="Enter text to encode — one per line for batch"
+                  autoComplete="off"
+                  spellCheck={false}
+                  rows={textareaRows}
+                  className="min-h-12 resize-y rounded-xl border border-kumo-line bg-kumo-elevated px-5 py-3 text-[15px] text-kumo-default placeholder:text-kumo-subtle transition-colors focus:border-kumo-default/30 focus:outline-none"
+                />
                 <button
                   type="submit"
                   disabled={!plaintext.trim() || pendingAction !== null}
@@ -328,21 +426,58 @@ function WorkbenchComponent() {
                   )}
                 </button>
               </div>
+
+              {selectedBarcodeType && (
+                <BarcodeOptionsPanel
+                  type={selectedBarcodeType}
+                  options={renderOptions}
+                  onChange={setRenderOptions}
+                />
+              )}
+
+              {barcodeTypes?.find((type) => type.symbology === selectedSymbology)?.examples
+                .length ? (
+                <p className="text-xs text-kumo-subtle">
+                  Example:{" "}
+                  {barcodeTypes.find((type) => type.symbology === selectedSymbology)?.examples[0]}
+                </p>
+              ) : null}
             </form>
 
             {batchResults.length > 0 ? (
-              <BatchResultsView results={batchResults} />
+              <>
+                <BatchResultsView results={batchResults} />
+                <Button type="button" variant="secondary" onClick={handleShareCurrent}>
+                  Share first result
+                </Button>
+              </>
             ) : encodeResult ? (
-              <BarcodeResultCard
-                result={encodeResult}
-                svgDownloadUrl={svgDownloadUrl}
-                pngDownloadUrl={pngDownloadUrl}
-              />
+              <div className="space-y-3">
+                <BarcodeResultCard
+                  result={encodeResult}
+                  svgDownloadUrl={svgDownloadUrl}
+                  pngDownloadUrl={pngDownloadUrl}
+                />
+                <Button type="button" variant="secondary" onClick={handleShareCurrent}>
+                  Share
+                </Button>
+              </div>
             ) : null}
           </div>
         ) : (
           <div className="space-y-6">
             <div className="space-y-4">
+              <select
+                value={selectedSymbology}
+                onChange={(e) => setSelectedSymbology(e.target.value as BarcodeSymbology)}
+                className="h-12 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-4 text-sm text-kumo-default focus:border-kumo-default/30 focus:outline-none"
+              >
+                {(barcodeTypes ?? []).map((type) => (
+                  <option key={type.symbology} value={type.symbology}>
+                    Decode as {type.displayName}
+                  </option>
+                ))}
+              </select>
               {decodePreviewUrl ? (
                 <div className="overflow-hidden rounded-lg bg-white">
                   <img
@@ -425,6 +560,71 @@ function WorkbenchComponent() {
   );
 }
 
+function BarcodeOptionsPanel({
+  type,
+  options,
+  onChange,
+}: {
+  type: BarcodeTypeClientDefinition;
+  options: Record<string, string | number | boolean>;
+  onChange: (options: Record<string, string | number | boolean>) => void;
+}) {
+  const visibleOptions = Object.entries(type.options).filter(
+    ([key]) => !["labelGap", "labelFontSize", "labelFontFamily"].includes(key),
+  );
+  if (visibleOptions.length === 0) return null;
+  return (
+    <div className="grid gap-x-4 gap-y-3 rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+      {visibleOptions.map(([key, option]) => (
+        <label key={key} className="flex flex-col gap-1.5 text-xs text-kumo-subtle">
+          <span className="font-medium">{option.label}</span>
+          {option.kind === "enum" ? (
+            <select
+              value={String(options[key] ?? option.default)}
+              onChange={(e) => onChange({ ...options, [key]: e.target.value })}
+              className="h-9 w-full rounded-md border border-kumo-line bg-kumo-recessed px-2 text-sm text-kumo-default focus:border-kumo-default/30 focus:outline-none"
+            >
+              {option.values.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          ) : option.kind === "boolean" ? (
+            <input
+              type="checkbox"
+              checked={Boolean(options[key] ?? option.default)}
+              onChange={(e) => onChange({ ...options, [key]: e.target.checked })}
+              className="size-5"
+            />
+          ) : option.kind === "color" ? (
+            <input
+              type="color"
+              value={String(options[key] ?? option.default)}
+              onChange={(e) => onChange({ ...options, [key]: e.target.value })}
+              className="h-9 w-full cursor-pointer rounded-md border border-kumo-line bg-kumo-recessed p-1"
+            />
+          ) : (
+            <input
+              type={option.kind === "number" ? "number" : "text"}
+              value={String(options[key] ?? option.default)}
+              min={option.kind === "number" ? option.min : undefined}
+              max={option.kind === "number" ? option.max : undefined}
+              onChange={(e) =>
+                onChange({
+                  ...options,
+                  [key]: option.kind === "number" ? Number(e.target.value) : e.target.value,
+                })
+              }
+              className="h-9 w-full rounded-md border border-kumo-line bg-kumo-recessed px-2 text-sm text-kumo-default focus:border-kumo-default/30 focus:outline-none"
+            />
+          )}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function BatchResultsView({ results }: { results: BatchResult[] }) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -497,7 +697,12 @@ function BatchResultsView({ results }: { results: BatchResult[] }) {
               {r.plaintext && r.status === "success" && (
                 <>
                   <a
-                    href={buildBarcodeAssetUrl("svg", r.plaintext)}
+                    href={buildBarcodeAssetUrl({
+                      format: "svg",
+                      symbology: r.symbology,
+                      plaintext: r.plaintext,
+                      options: getDefaultRenderOptions("svg", r.plaintext, r.symbology),
+                    })}
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
@@ -509,7 +714,12 @@ function BatchResultsView({ results }: { results: BatchResult[] }) {
                     SVG
                   </a>
                   <a
-                    href={buildBarcodeAssetUrl("png", r.plaintext)}
+                    href={buildBarcodeAssetUrl({
+                      format: "png",
+                      symbology: r.symbology,
+                      plaintext: r.plaintext,
+                      options: getDefaultRenderOptions("png", r.plaintext, r.symbology),
+                    })}
                     target="_blank"
                     rel="noreferrer"
                     className={cn(

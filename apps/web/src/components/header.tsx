@@ -40,6 +40,12 @@ export default function Header() {
           >
             History
           </Link>
+          <Link
+            to="/lists"
+            className="rounded-md px-3 py-1.5 text-[13px] font-medium text-kumo-subtle transition-colors hover:text-kumo-default [&.active]:text-kumo-default"
+          >
+            Lists
+          </Link>
         </nav>
 
         <div className="flex justify-end">

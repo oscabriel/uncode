@@ -1,4 +1,6 @@
-export type BarcodeSymbology = "code128";
+export type BarcodeSymbology = "code128" | "qr" | "ean13" | "ean8" | "upca";
+
+export type BarcodeOutputFormat = "svg" | "png" | "json";
 
 export type BarcodeFontEncoding = "libre-barcode-128";
 
@@ -11,7 +13,7 @@ export type BarcodeRunStatus =
   | "unsupported_format"
   | "invalid_image";
 
-export type Code128CodeSet = "B" | "C";
+export type Code128CodeSet = "A" | "B" | "C";
 
 export type Code128Transition = {
   atInputIndex: number;
@@ -92,12 +94,14 @@ export type BarcodeRenderResult = BarcodeBaseResult & {
   svg?: string;
   pngBase64?: string;
   canonicalEncoding?: Code128Encoding;
+  outputFormat?: BarcodeOutputFormat;
   runId?: string;
 };
 
 export type BarcodeDecodeResult = BarcodeBaseResult & {
   kind: "decode";
   plaintext?: string;
+  format?: string;
   imageStorageId?: string;
   imageUrl?: string | null;
   runId?: string;

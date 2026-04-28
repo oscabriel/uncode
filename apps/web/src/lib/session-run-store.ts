@@ -13,6 +13,7 @@ export type SessionBarcodeRun = {
   /** Client-generated unique id (crypto.randomUUID). */
   id: string;
   kind: "encode" | "decode" | "render";
+  symbology?: string;
   status: string;
   plaintext?: string;
   errorMessage?: string;

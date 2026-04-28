@@ -1,58 +1,13 @@
 import { httpAction } from "./_generated/server";
 import { renderCode128Png } from "../lib/renderPng";
-import { encodeCode128 } from "./lib/code128";
-import { renderCode128Svg } from "./lib/renderSvg";
-
-function getRequiredPlaintext(request: Request) {
-  const plaintext = new URL(request.url).searchParams.get("text")?.trim();
-  if (!plaintext) {
-    throw new Error('Missing required "text" query parameter.');
-  }
-  return plaintext;
-}
-
-function parseOptionalNumber(name: string, value: string | null) {
-  if (value === null || value.trim() === "") {
-    return undefined;
-  }
-
-  const parsedValue = Number(value);
-  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    throw new Error(`${name} must be a positive number.`);
-  }
-
-  return parsedValue;
-}
-
-function getSvgOptions(request: Request) {
-  const searchParams = new URL(request.url).searchParams;
-  const label = searchParams.get("label");
-  const text = searchParams.get("text") ?? "";
-
-  return {
-    moduleWidth: parseOptionalNumber("moduleWidth", searchParams.get("moduleWidth")),
-    barcodeHeight: parseOptionalNumber("barcodeHeight", searchParams.get("barcodeHeight")),
-    quietZoneModules: parseOptionalNumber("quietZoneModules", searchParams.get("quietZoneModules")),
-    foreground: searchParams.get("foreground") ?? undefined,
-    background: searchParams.get("background") ?? undefined,
-    labelText: label === null || label === "false" ? undefined : label === "true" ? text : label,
-    labelGap: parseOptionalNumber("labelGap", searchParams.get("labelGap")),
-    labelFontSize: parseOptionalNumber("labelFontSize", searchParams.get("labelFontSize")),
-    labelFontFamily: searchParams.get("labelFontFamily") ?? undefined,
-  };
-}
-
-function getPngOptions(request: Request) {
-  const searchParams = new URL(request.url).searchParams;
-
-  return {
-    moduleWidth: parseOptionalNumber("moduleWidth", searchParams.get("moduleWidth")),
-    barcodeHeight: parseOptionalNumber("barcodeHeight", searchParams.get("barcodeHeight")),
-    quietZoneModules: parseOptionalNumber("quietZoneModules", searchParams.get("quietZoneModules")),
-    foreground: searchParams.get("foreground") ?? undefined,
-    background: searchParams.get("background") ?? undefined,
-  };
-}
+import { renderBinaryModulesPng, renderMatrixPng } from "../lib/renderGenericPng";
+import { normalizeBarcodeHttpRequest } from "./barcode/request";
+import { listBarcodeTypesForClient } from "./barcode/types";
+import { renderCode128RequestSvg } from "./barcode/symbologies/code128";
+import { renderCode128RequestPng } from "./barcode/symbologies/code128";
+import { generateBarcode } from "./barcode/generate";
+import { encodeLinearBarcode } from "./barcode/symbologies/ean";
+import { encodeQrMatrix } from "./barcode/symbologies/qr";
 
 function jsonError(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), {
@@ -60,22 +15,37 @@ function jsonError(message: string, status = 400) {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Error-Message": message,
     },
   });
 }
 
+function imageHeaders(contentType: string, symbology: string, plaintext: string, cost: number) {
+  return {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+    "X-Barcode-Type": symbology,
+    "X-Barcode-Content": plaintext,
+    "X-Barcode-Cost": String(cost),
+  };
+}
+
 export const code128Svg = httpAction(async (_ctx, request) => {
   try {
-    const plaintext = getRequiredPlaintext(request);
-    const encoding = encodeCode128(plaintext);
-    const rendered = renderCode128Svg(encoding, getSvgOptions(request));
+    const normalized = normalizeBarcodeHttpRequest(request, "svg");
+    const rendered =
+      normalized.symbology === "code128"
+        ? renderCode128RequestSvg(normalized)
+        : ((await generateBarcode(normalized)) as { svg: string });
 
     return new Response(rendered.svg, {
       status: 200,
-      headers: {
-        "Content-Type": "image/svg+xml; charset=utf-8",
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-      },
+      headers: imageHeaders(
+        "image/svg+xml; charset=utf-8",
+        normalized.symbology,
+        normalized.plaintext,
+        normalized.cost,
+      ),
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Unable to generate Code 128 SVG.");
@@ -84,19 +54,38 @@ export const code128Svg = httpAction(async (_ctx, request) => {
 
 export const code128Png = httpAction(async (_ctx, request) => {
   try {
-    const plaintext = getRequiredPlaintext(request);
-    const encoding = encodeCode128(plaintext);
-    const rendered = renderCode128Png(encoding, getPngOptions(request));
+    const normalized = normalizeBarcodeHttpRequest(request, "png");
+    const rendered =
+      normalized.symbology === "code128"
+        ? await renderCode128RequestPng(normalized, renderCode128Png)
+        : normalized.symbology === "qr"
+          ? renderMatrixPng(encodeQrMatrix(normalized), normalized.options)
+          : renderBinaryModulesPng(
+              encodeLinearBarcode(normalized.symbology, normalized.plaintext),
+              normalized.options,
+            );
     const pngBody = Uint8Array.from(rendered.pngBytes).buffer;
 
     return new Response(pngBody, {
       status: 200,
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-      },
+      headers: imageHeaders(
+        "image/png",
+        normalized.symbology,
+        normalized.plaintext,
+        normalized.cost,
+      ),
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Unable to generate Code 128 PNG.");
   }
+});
+
+export const barcodeTypes = httpAction(async () => {
+  return new Response(JSON.stringify({ types: listBarcodeTypesForClient() }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+    },
+  });
 });

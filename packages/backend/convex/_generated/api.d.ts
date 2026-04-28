@@ -9,9 +9,22 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as barcode_batch from "../barcode/batch.js";
+import type * as barcode_generate from "../barcode/generate.js";
+import type * as barcode_listActions from "../barcode/listActions.js";
+import type * as barcode_lists from "../barcode/lists.js";
+import type * as barcode_render from "../barcode/render.js";
+import type * as barcode_request from "../barcode/request.js";
+import type * as barcode_shares from "../barcode/shares.js";
+import type * as barcode_symbologies_code128 from "../barcode/symbologies/code128.js";
+import type * as barcode_symbologies_ean from "../barcode/symbologies/ean.js";
+import type * as barcode_symbologies_qr from "../barcode/symbologies/qr.js";
+import type * as barcode_types from "../barcode/types.js";
+import type * as barcode_validators from "../barcode/validators.js";
 import type * as barcodeActions from "../barcodeActions.js";
 import type * as barcodeHttp from "../barcodeHttp.js";
 import type * as barcodeNode from "../barcodeNode.js";
+import type * as barcodeTypes from "../barcodeTypes.js";
 import type * as barcodes from "../barcodes.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
@@ -29,9 +42,22 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "barcode/batch": typeof barcode_batch;
+  "barcode/generate": typeof barcode_generate;
+  "barcode/listActions": typeof barcode_listActions;
+  "barcode/lists": typeof barcode_lists;
+  "barcode/render": typeof barcode_render;
+  "barcode/request": typeof barcode_request;
+  "barcode/shares": typeof barcode_shares;
+  "barcode/symbologies/code128": typeof barcode_symbologies_code128;
+  "barcode/symbologies/ean": typeof barcode_symbologies_ean;
+  "barcode/symbologies/qr": typeof barcode_symbologies_qr;
+  "barcode/types": typeof barcode_types;
+  "barcode/validators": typeof barcode_validators;
   barcodeActions: typeof barcodeActions;
   barcodeHttp: typeof barcodeHttp;
   barcodeNode: typeof barcodeNode;
+  barcodeTypes: typeof barcodeTypes;
   barcodes: typeof barcodes;
   healthCheck: typeof healthCheck;
   http: typeof http;

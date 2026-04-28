@@ -5,6 +5,7 @@ import { Badge, SkeletonLine } from "@cloudflare/kumo";
 export type BarcodeRunItem = {
   id: string;
   kind: string;
+  symbology?: string;
   status: string;
   plaintext?: string;
   errorMessage?: string;
@@ -35,6 +36,23 @@ function statusLabel(status: string) {
   }
 }
 
+function symbologyLabel(symbology: string | undefined) {
+  switch (symbology) {
+    case "code128":
+      return "Code 128";
+    case "qr":
+      return "QR";
+    case "ean13":
+      return "EAN-13";
+    case "ean8":
+      return "EAN-8";
+    case "upca":
+      return "UPC-A";
+    default:
+      return symbology ?? "Barcode";
+  }
+}
+
 function HistoryItem({ run }: { run: BarcodeRunItem }) {
   const isSuccess = run.status === "success";
 
@@ -43,6 +61,7 @@ function HistoryItem({ run }: { run: BarcodeRunItem }) {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-hidden">
           <Badge variant={isSuccess ? "success" : "destructive"}>{run.kind}</Badge>
+          <Badge variant="secondary">{symbologyLabel(run.symbology)}</Badge>
           <Badge variant={isSuccess ? "secondary" : "destructive"}>{statusLabel(run.status)}</Badge>
         </div>
         <span className="shrink-0 text-xs text-kumo-subtle">

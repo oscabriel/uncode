@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 
 import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  barcodeFontEncodingValidator,
+  barcodeOutputFormatValidator,
+  barcodeSymbologyValidator,
+} from "./barcode/validators";
 
 const barcodeRunKind = v.union(v.literal("encode"), v.literal("decode"), v.literal("render"));
 const barcodeRunFailureStatus = v.union(
@@ -35,7 +40,7 @@ export const listRecentRuns = query({
 
     return await ctx.db
       .query("barcodeRuns")
-      .withIndex("by_created_by_created_at", (q) => q.eq("createdBy", identity.subject))
+      .withIndex("by_created_by_created_at", (q) => q.eq("createdBy", identity.tokenIdentifier))
       .order("desc")
       .take(limit);
   },
@@ -50,7 +55,7 @@ export const getBarcodeRun = query({
     if (!identity) return null;
 
     const barcodeRun = await ctx.db.get(args.runId);
-    if (!barcodeRun || barcodeRun.createdBy !== identity.subject) {
+    if (!barcodeRun || barcodeRun.createdBy !== identity.tokenIdentifier) {
       return null;
     }
 
@@ -61,10 +66,14 @@ export const getBarcodeRun = query({
 export const storeSuccessfulRun = internalMutation({
   args: {
     kind: barcodeRunKind,
+    symbology: barcodeSymbologyValidator,
+    outputFormat: v.optional(barcodeOutputFormatValidator),
+    optionsJson: v.optional(v.string()),
+    typeAlias: v.optional(v.string()),
     createdBy: v.string(),
     plaintext: v.optional(v.string()),
     encodedText: v.optional(v.string()),
-    fontEncoding: v.optional(v.literal("libre-barcode-128")),
+    fontEncoding: v.optional(barcodeFontEncodingValidator),
     checksumValue: v.optional(v.number()),
     inputImageStorageId: v.optional(v.id("_storage")),
     resultImageStorageId: v.optional(v.id("_storage")),
@@ -72,7 +81,10 @@ export const storeSuccessfulRun = internalMutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("barcodeRuns", {
       kind: args.kind,
-      symbology: "code128",
+      symbology: args.symbology,
+      outputFormat: args.outputFormat,
+      optionsJson: args.optionsJson,
+      typeAlias: args.typeAlias,
       plaintext: args.plaintext,
       encodedText: args.encodedText,
       fontEncoding: args.fontEncoding,
@@ -89,6 +101,10 @@ export const storeSuccessfulRun = internalMutation({
 export const storeFailedRun = internalMutation({
   args: {
     kind: barcodeRunKind,
+    symbology: barcodeSymbologyValidator,
+    outputFormat: v.optional(barcodeOutputFormatValidator),
+    optionsJson: v.optional(v.string()),
+    typeAlias: v.optional(v.string()),
     createdBy: v.string(),
     plaintext: v.optional(v.string()),
     inputImageStorageId: v.optional(v.id("_storage")),
@@ -98,7 +114,10 @@ export const storeFailedRun = internalMutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("barcodeRuns", {
       kind: args.kind,
-      symbology: "code128",
+      symbology: args.symbology,
+      outputFormat: args.outputFormat,
+      optionsJson: args.optionsJson,
+      typeAlias: args.typeAlias,
       plaintext: args.plaintext,
       inputImageStorageId: args.inputImageStorageId,
       status: args.status,

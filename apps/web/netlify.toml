@@ -8,18 +8,18 @@ command = "vite build"
 publish = "dist/client"
 
 [[redirects]]
-  from = "/favicon.ico"
-  to = "/favicon.svg"
-  status = 200
+from = "/favicon.ico"
+to = "/favicon.svg"
+status = 200
 
 # Immutable caching for hashed build assets
 [[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+for = "/assets/*"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
 
 # Short cache for the HTML document (SSR'd, may change)
 [[headers]]
-  for = "/*"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+for = "/*"
+[headers.values]
+Cache-Control = "public, max-age=0, must-revalidate"

@@ -19,7 +19,12 @@ type LoadedImage = {
 };
 
 type DecodedCode128ImageResult =
-  | { status: "success"; plaintext: string }
+  | {
+      status: "success";
+      plaintext: string;
+      format: string;
+      symbology: "code128" | "ean13" | "ean8" | "upca" | "qr";
+    }
   | { status: "not_found"; errorMessage: string }
   | { status: "unsupported_format"; errorMessage: string }
   | { status: "invalid_image"; errorMessage: string };
@@ -33,6 +38,7 @@ const ZXING_FORMAT_HINTS = [
   BarcodeFormat.ITF,
   BarcodeFormat.UPC_A,
   BarcodeFormat.UPC_E,
+  BarcodeFormat.QR_CODE,
 ] as const;
 
 function detectImageFormat(bytes: Uint8Array, contentType?: string) {
@@ -209,6 +215,15 @@ function decodeBitmap(rgba: Uint8ClampedArray, width: number, height: number) {
   }
 }
 
+function mapZxingFormat(format: BarcodeFormat) {
+  if (format === BarcodeFormat.CODE_128) return "code128";
+  if (format === BarcodeFormat.EAN_13) return "ean13";
+  if (format === BarcodeFormat.EAN_8) return "ean8";
+  if (format === BarcodeFormat.UPC_A) return "upca";
+  if (format === BarcodeFormat.QR_CODE) return "qr";
+  return null;
+}
+
 export async function decodeCode128ImageFromBlob(blob: Blob): Promise<DecodedCode128ImageResult> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
 
@@ -216,16 +231,19 @@ export async function decodeCode128ImageFromBlob(blob: Blob): Promise<DecodedCod
     const image = loadImage(bytes, blob.type);
     const decoded = decodeBitmap(image.rgba, image.width, image.height);
 
-    if (decoded.getBarcodeFormat() !== BarcodeFormat.CODE_128) {
+    const symbology = mapZxingFormat(decoded.getBarcodeFormat());
+    if (!symbology) {
       return {
         status: "unsupported_format",
-        errorMessage: "The uploaded image contains a barcode, but it is not Code 128.",
+        errorMessage: "The uploaded image contains a barcode, but it is not a supported format.",
       };
     }
 
     return {
       status: "success",
       plaintext: decoded.getText(),
+      format: BarcodeFormat[decoded.getBarcodeFormat()] ?? String(decoded.getBarcodeFormat()),
+      symbology,
     };
   } catch (error) {
     if (error instanceof NotFoundException) {

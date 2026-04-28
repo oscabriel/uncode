@@ -11,8 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkbenchRouteImport } from './routes/workbench'
 import { Route as SigninRouteImport } from './routes/signin'
+import { Route as ListsRouteImport } from './routes/lists'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ListsIndexRouteImport } from './routes/lists.index'
+import { Route as ShareKeyRouteImport } from './routes/share.$key'
+import { Route as ListsNewRouteImport } from './routes/lists.new'
+import { Route as ListsListIdRouteImport } from './routes/lists.$listId'
+import { Route as ShareListKeyRouteImport } from './routes/share.list.$key'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const WorkbenchRoute = WorkbenchRouteImport.update({
@@ -25,6 +31,11 @@ const SigninRoute = SigninRouteImport.update({
   path: '/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListsRoute = ListsRouteImport.update({
+  id: '/lists',
+  path: '/lists',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -33,6 +44,31 @@ const HistoryRoute = HistoryRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListsIndexRoute = ListsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ListsRoute,
+} as any)
+const ShareKeyRoute = ShareKeyRouteImport.update({
+  id: '/share/$key',
+  path: '/share/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListsNewRoute = ListsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ListsRoute,
+} as any)
+const ListsListIdRoute = ListsListIdRouteImport.update({
+  id: '/$listId',
+  path: '/$listId',
+  getParentRoute: () => ListsRoute,
+} as any)
+const ShareListKeyRoute = ShareListKeyRouteImport.update({
+  id: '/share/list/$key',
+  path: '/share/list/$key',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -44,39 +80,92 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/lists': typeof ListsRouteWithChildren
   '/signin': typeof SigninRoute
   '/workbench': typeof WorkbenchRoute
+  '/lists/$listId': typeof ListsListIdRoute
+  '/lists/new': typeof ListsNewRoute
+  '/share/$key': typeof ShareKeyRoute
+  '/lists/': typeof ListsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/share/list/$key': typeof ShareListKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/signin': typeof SigninRoute
   '/workbench': typeof WorkbenchRoute
+  '/lists/$listId': typeof ListsListIdRoute
+  '/lists/new': typeof ListsNewRoute
+  '/share/$key': typeof ShareKeyRoute
+  '/lists': typeof ListsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/share/list/$key': typeof ShareListKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/lists': typeof ListsRouteWithChildren
   '/signin': typeof SigninRoute
   '/workbench': typeof WorkbenchRoute
+  '/lists/$listId': typeof ListsListIdRoute
+  '/lists/new': typeof ListsNewRoute
+  '/share/$key': typeof ShareKeyRoute
+  '/lists/': typeof ListsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/share/list/$key': typeof ShareListKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/signin' | '/workbench' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/lists'
+    | '/signin'
+    | '/workbench'
+    | '/lists/$listId'
+    | '/lists/new'
+    | '/share/$key'
+    | '/lists/'
+    | '/api/auth/$'
+    | '/share/list/$key'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/signin' | '/workbench' | '/api/auth/$'
-  id: '__root__' | '/' | '/history' | '/signin' | '/workbench' | '/api/auth/$'
+  to:
+    | '/'
+    | '/history'
+    | '/signin'
+    | '/workbench'
+    | '/lists/$listId'
+    | '/lists/new'
+    | '/share/$key'
+    | '/lists'
+    | '/api/auth/$'
+    | '/share/list/$key'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/lists'
+    | '/signin'
+    | '/workbench'
+    | '/lists/$listId'
+    | '/lists/new'
+    | '/share/$key'
+    | '/lists/'
+    | '/api/auth/$'
+    | '/share/list/$key'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
+  ListsRoute: typeof ListsRouteWithChildren
   SigninRoute: typeof SigninRoute
   WorkbenchRoute: typeof WorkbenchRoute
+  ShareKeyRoute: typeof ShareKeyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ShareListKeyRoute: typeof ShareListKeyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SigninRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lists': {
+      id: '/lists'
+      path: '/lists'
+      fullPath: '/lists'
+      preLoaderRoute: typeof ListsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
@@ -109,6 +205,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lists/': {
+      id: '/lists/'
+      path: '/'
+      fullPath: '/lists/'
+      preLoaderRoute: typeof ListsIndexRouteImport
+      parentRoute: typeof ListsRoute
+    }
+    '/share/$key': {
+      id: '/share/$key'
+      path: '/share/$key'
+      fullPath: '/share/$key'
+      preLoaderRoute: typeof ShareKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lists/new': {
+      id: '/lists/new'
+      path: '/new'
+      fullPath: '/lists/new'
+      preLoaderRoute: typeof ListsNewRouteImport
+      parentRoute: typeof ListsRoute
+    }
+    '/lists/$listId': {
+      id: '/lists/$listId'
+      path: '/$listId'
+      fullPath: '/lists/$listId'
+      preLoaderRoute: typeof ListsListIdRouteImport
+      parentRoute: typeof ListsRoute
+    }
+    '/share/list/$key': {
+      id: '/share/list/$key'
+      path: '/share/list/$key'
+      fullPath: '/share/list/$key'
+      preLoaderRoute: typeof ShareListKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -119,12 +250,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ListsRouteChildren {
+  ListsListIdRoute: typeof ListsListIdRoute
+  ListsNewRoute: typeof ListsNewRoute
+  ListsIndexRoute: typeof ListsIndexRoute
+}
+
+const ListsRouteChildren: ListsRouteChildren = {
+  ListsListIdRoute: ListsListIdRoute,
+  ListsNewRoute: ListsNewRoute,
+  ListsIndexRoute: ListsIndexRoute,
+}
+
+const ListsRouteWithChildren = ListsRoute._addFileChildren(ListsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
+  ListsRoute: ListsRouteWithChildren,
   SigninRoute: SigninRoute,
   WorkbenchRoute: WorkbenchRoute,
+  ShareKeyRoute: ShareKeyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ShareListKeyRoute: ShareListKeyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

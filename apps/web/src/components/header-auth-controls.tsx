@@ -22,7 +22,7 @@ export default function HeaderAuthControls() {
     return <SignInLink />;
   }
 
-  if (session?.user) {
+  if (session?.user && !session.user.isAnonymous) {
     return <UserMenu user={session.user} />;
   }
 

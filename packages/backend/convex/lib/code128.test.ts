@@ -32,12 +32,31 @@ describe("encodeCode128", () => {
     expect(encoding.codeValues).toEqual([104, 65, 66, 67, 99, 77, 77, 97, 106]);
   });
 
-  it("rejects characters outside the POC-safe printable ASCII range", () => {
-    expect(() => encodeCode128("hello\nworld")).toThrow(
-      "POC encoding currently supports printable ASCII only",
-    );
+  it("uses Code Set A for ASCII control characters", () => {
+    const encoding = encodeCode128("A\nB");
+
+    expect(encoding.startCode).toBe("A");
+    expect(encoding.codeSetTransitions).toEqual([]);
+    expect(encoding.checksumValue).toBe(77);
+    expect(encoding.codeValues).toEqual([103, 33, 74, 34, 77, 106]);
+  });
+
+  it("switches between Code Set B and A for mixed printable/control payloads", () => {
+    const encoding = encodeCode128("hello\nworld");
+
+    expect(encoding.startCode).toBe("B");
+    expect(encoding.codeSetTransitions).toEqual([
+      { atInputIndex: 5, toCodeSet: "A" },
+      { atInputIndex: 6, toCodeSet: "B" },
+    ]);
+    expect(encoding.codeValues).toEqual([
+      104, 72, 69, 76, 76, 79, 101, 74, 100, 87, 79, 82, 76, 68, 20, 106,
+    ]);
+  });
+
+  it("rejects characters outside the supported ASCII range", () => {
     expect(() => encodeCode128("caf\u00e9")).toThrow(
-      "POC encoding currently supports printable ASCII only",
+      "Code 128 encoding currently supports ASCII 0-126",
     );
   });
 });

@@ -9,6 +9,23 @@ import { useState } from "react";
 
 type BarcodeResult = BarcodeEncodeActionResult | BarcodeRenderResult | BarcodeDecodeResult | null;
 
+function symbologyLabel(symbology: string) {
+  switch (symbology) {
+    case "code128":
+      return "Code 128";
+    case "qr":
+      return "QR";
+    case "ean13":
+      return "EAN-13";
+    case "ean8":
+      return "EAN-8";
+    case "upca":
+      return "UPC-A";
+    default:
+      return symbology;
+  }
+}
+
 export default function BarcodeResultCard({
   result,
   svgDownloadUrl,
@@ -56,6 +73,7 @@ export default function BarcodeResultCard({
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <Badge variant="secondary">{symbologyLabel(result.symbology)}</Badge>
             {result.plaintext && <span className="font-mono text-sm">{result.plaintext}</span>}
           </div>
           <Badge variant={isSuccess ? "success" : "destructive"}>

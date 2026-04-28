@@ -3,6 +3,9 @@ import jpeg from "jpeg-js";
 import { describe, expect, it } from "vitest";
 
 import { encodeCode128 } from "../convex/lib/code128";
+import { normalizeBarcodeRequest } from "../convex/barcode/request";
+import { encodeQrMatrix } from "../convex/barcode/symbologies/qr";
+import { renderMatrixPng } from "./renderGenericPng";
 import { decodeCode128ImageFromBlob } from "./decodeImage";
 import { renderCode128Png } from "./renderPng";
 
@@ -21,6 +24,8 @@ describe("decodeCode128ImageFromBlob", () => {
     expect(result).toEqual({
       status: "success",
       plaintext: "WO20070317",
+      format: "CODE_128",
+      symbology: "code128",
     });
   });
 
@@ -47,6 +52,49 @@ describe("decodeCode128ImageFromBlob", () => {
     expect(result).toEqual({
       status: "success",
       plaintext: "81936910422665342067",
+      format: "CODE_128",
+      symbology: "code128",
+    });
+  });
+
+  it("roundtrips Code Set A control characters", async () => {
+    const encoding = encodeCode128("A\nB");
+    const rendered = renderCode128Png(encoding, {
+      moduleWidth: 4,
+      barcodeHeight: 112,
+      quietZoneModules: 12,
+    });
+
+    const result = await decodeCode128ImageFromBlob(
+      new Blob([Uint8Array.from(rendered.pngBytes).buffer], { type: "image/png" }),
+    );
+
+    expect(result).toEqual({
+      status: "success",
+      plaintext: "A\nB",
+      format: "CODE_128",
+      symbology: "code128",
+    });
+  });
+
+  it("decodes generated QR images with detected symbology", async () => {
+    const request = normalizeBarcodeRequest({
+      symbology: "qr",
+      plaintext: "QR Barcode",
+      outputFormat: "png",
+      options: { size: 180, qz: 2 },
+    });
+    const rendered = renderMatrixPng(encodeQrMatrix(request), request.options);
+
+    const result = await decodeCode128ImageFromBlob(
+      new Blob([Uint8Array.from(rendered.pngBytes).buffer], { type: "image/png" }),
+    );
+
+    expect(result).toEqual({
+      status: "success",
+      plaintext: "QR Barcode",
+      format: "QR_CODE",
+      symbology: "qr",
     });
   });
 
